@@ -12,3 +12,14 @@ export const fetchPlots = async () => {
         return [];
     }
 };
+
+
+export const predictPlotPrice = async (shapeData) => {
+    try {
+        const response = await axios.post(`${API_URL}/ai/predict-price`, shapeData);
+        return response.data;
+    } catch (error) {
+        console.error("Error predicting price:", error);
+        return null;
+    }
+};

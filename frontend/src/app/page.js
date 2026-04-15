@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { fetchPlots } from '../services/api';
+import { fetchPlots, predictPlotPrice } from '../services/api';
 import { Map, Loader2, PlusCircle } from 'lucide-react';
 
 // Crucial: Dynamically import the Canvas so it only loads in the browser
@@ -12,11 +12,19 @@ const PlotCanvas = dynamic(() => import('../components/PlotCanvas'), {
 });
 
 export default function Dashboard() {
+  // Base State
   const [plots, setPlots] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Modal & Drawing State
   const [showModal, setShowModal] = useState(false);
   const [drawnShapeData, setDrawnShapeData] = useState(null);
+  
+  // AI Pricing State
+  const [isPredicting, setIsPredicting] = useState(false);
+  const [predictionResult, setPredictionResult] = useState(null);
 
+  // 1. Fetch data on load
   useEffect(() => {
     const getPlots = async () => {
       const data = await fetchPlots();
@@ -26,10 +34,35 @@ export default function Dashboard() {
     getPlots();
   }, []);
 
-  // This fires when the Admin finishes dragging a box on the image
+  // 2. This fires when the Admin finishes dragging a box on the image
   const handlePlotDrawn = (rectData) => {
     setDrawnShapeData(rectData);
-    setShowModal(true); // Open the popup for details and AI pricing!
+    setShowModal(true); 
+  };
+
+  // 3. This fires when the "Initialize AI" button is clicked
+  const handleAIInit = async () => {
+    if (!drawnShapeData) return;
+    setIsPredicting(true);
+    
+    // Send the raw pixels to the Python Backend
+    const result = await predictPlotPrice({
+      x: drawnShapeData.x,
+      y: drawnShapeData.y,
+      width: drawnShapeData.width,
+      height: drawnShapeData.height
+    });
+    
+    // Save the AI's response to state
+    setPredictionResult(result);
+    setIsPredicting(false);
+  };
+
+  // 4. Safely close and reset the modal
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setPredictionResult(null);
+    setDrawnShapeData(null);
   };
 
   return (
@@ -83,30 +116,62 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* The AI Popup Modal Placeholder */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
-           <div className="bg-neutral-900 border border-neutral-700 p-8 rounded-2xl w-full max-w-md">
-              <h2 className="text-2xl font-bold text-emerald-400 mb-2">AI Smart-Snap Triggered</h2>
-              <p className="text-neutral-400 mb-6 text-sm">You have drawn a new spatial boundary. The AI will now calculate dimensions and predict the optimal base price.</p>
+      {/* The AI Popup Modal */}
+      {showModal && drawnShapeData && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+           <div className="bg-neutral-900 border border-neutral-700 p-8 rounded-2xl w-full max-w-lg shadow-2xl">
+              <h2 className="text-2xl font-bold text-emerald-400 mb-2">AI Spatial Intelligence</h2>
               
-              <div className="bg-neutral-950 p-4 rounded-lg mb-6 text-sm font-mono text-neutral-300">
-                <p>Raw X: {drawnShapeData.x.toFixed(2)}</p>
-                <p>Raw Y: {drawnShapeData.y.toFixed(2)}</p>
-                <p>Pixel Width: {Math.abs(drawnShapeData.width).toFixed(2)}</p>
-                <p>Pixel Height: {Math.abs(drawnShapeData.height).toFixed(2)}</p>
-              </div>
+              {!predictionResult ? (
+                  <>
+                    <p className="text-neutral-400 mb-6 text-sm">You have drawn a new boundary. Initialize the AI to calculate real-world dimensions and predict optimal pricing.</p>
+                    <div className="bg-neutral-950 p-4 rounded-lg mb-6 text-sm font-mono text-neutral-500 border border-neutral-800">
+                        {/* Use optional chaining (?) to prevent crashes if data is missing momentarily */}
+                        <p>Raw X/Y: {drawnShapeData?.x.toFixed(0)}, {drawnShapeData?.y.toFixed(0)}</p>
+                        <p>Raw W/H: {Math.abs(drawnShapeData?.width || 0).toFixed(0)}px x {Math.abs(drawnShapeData?.height || 0).toFixed(0)}px</p>
+                    </div>
+                  </>
+              ) : (
+                  <div className="mb-6 space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-neutral-950 p-4 rounded-lg border border-neutral-800">
+                              <p className="text-xs text-neutral-500 mb-1">Calculated Size</p>
+                              <p className="text-xl font-bold text-white">{predictionResult.width_ft}' x {predictionResult.length_ft}'</p>
+                              <p className="text-sm text-neutral-400">{predictionResult.total_area_sqft} sq ft</p>
+                          </div>
+                          <div className="bg-emerald-900/20 p-4 rounded-lg border border-emerald-500/30">
+                              <p className="text-xs text-emerald-500/70 mb-1">Predicted Value</p>
+                              <p className="text-2xl font-bold text-emerald-400">₹{predictionResult.predicted_price.toLocaleString('en-IN')}</p>
+                          </div>
+                      </div>
+                      <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg">
+                          <p className="text-sm text-blue-300 leading-relaxed">{predictionResult.ai_insight}</p>
+                      </div>
+                  </div>
+              )}
 
               <div className="flex gap-4">
                 <button 
-                  onClick={() => setShowModal(false)}
+                  onClick={handleCloseModal}
                   className="px-4 py-2 rounded-lg font-medium bg-neutral-800 hover:bg-neutral-700 transition-colors w-full"
                 >
-                  Cancel
+                  {predictionResult ? 'Close' : 'Cancel'}
                 </button>
-                <button className="px-4 py-2 rounded-lg font-medium bg-emerald-500 text-black hover:bg-emerald-400 transition-colors w-full flex justify-center items-center gap-2">
-                  <PlusCircle className="w-4 h-4" /> Initialize AI
-                </button>
+                
+                {!predictionResult ? (
+                    <button 
+                        onClick={handleAIInit}
+                        disabled={isPredicting}
+                        className="px-4 py-2 rounded-lg font-medium bg-emerald-500 text-black hover:bg-emerald-400 transition-colors w-full flex justify-center items-center gap-2 disabled:opacity-50"
+                    >
+                    {isPredicting ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />} 
+                    {isPredicting ? 'Analyzing...' : 'Initialize AI'}
+                    </button>
+                ) : (
+                    <button className="px-4 py-2 rounded-lg font-medium bg-white text-black hover:bg-neutral-200 transition-colors w-full flex justify-center items-center gap-2">
+                      Save Plot to Database
+                    </button>
+                )}
               </div>
            </div>
         </div>
