@@ -1,0 +1,8 @@
+# Backend Secrets & Environments
+backend/.env
+backend/myvenv/
+backend/__pycache__/
+
+# Frontend Heavy Folders
+frontend/node_modules/
+frontend/.next/

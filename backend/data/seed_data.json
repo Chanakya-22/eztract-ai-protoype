@@ -1,0 +1,67 @@
+[
+  {
+    "plot_number": "13",
+    "width_ft": 40.9,
+    "length_ft": 50.0,
+    "total_area_sqft": 2045.0,
+    "base_price": 2500000.00,
+    "status": "Sold",
+    "buyer_name": "Ramesh Kumar",
+    "contact_number": "+91-9876543210",
+    "booking_date": "2026-03-15T10:30:00Z",
+    "managed_by": "System Admin",
+    "polygon_coordinates": "[[800, 600], [840, 600], [840, 650], [800, 650]]"
+  },
+  {
+    "plot_number": "14",
+    "width_ft": 40.0,
+    "length_ft": 50.0,
+    "total_area_sqft": 2000.0,
+    "base_price": 2400000.00,
+    "status": "Available",
+    "buyer_name": null,
+    "contact_number": null,
+    "booking_date": null,
+    "managed_by": null,
+    "polygon_coordinates": "[[760, 600], [800, 600], [800, 650], [760, 650]]"
+  },
+  {
+    "plot_number": "29",
+    "width_ft": 40.0,
+    "length_ft": 50.0,
+    "total_area_sqft": 2000.0,
+    "base_price": 2450000.00,
+    "status": "Available",
+    "buyer_name": null,
+    "contact_number": null,
+    "booking_date": null,
+    "managed_by": null,
+    "polygon_coordinates": "[[300, 500], [340, 500], [340, 550], [300, 550]]"
+  },
+  {
+    "plot_number": "30",
+    "width_ft": 30.0,
+    "length_ft": 50.0,
+    "total_area_sqft": 1500.0,
+    "base_price": 1800000.00,
+    "status": "Booked",
+    "buyer_name": "Priya Sharma",
+    "contact_number": "+91-9123456780",
+    "booking_date": "2026-04-10T14:15:00Z",
+    "managed_by": "Agent_01",
+    "polygon_coordinates": "[[340, 500], [370, 500], [370, 550], [340, 550]]"
+  },
+  {
+    "plot_number": "102",
+    "width_ft": 43.0,
+    "length_ft": 44.9,
+    "total_area_sqft": 1930.7,
+    "base_price": 2800000.00,
+    "status": "Sold",
+    "buyer_name": "Vikram Singh",
+    "contact_number": "+91-9988776655",
+    "booking_date": "2026-01-20T09:00:00Z",
+    "managed_by": "Organization Admin",
+    "polygon_coordinates": "[[100, 400], [143, 400], [143, 445], [100, 445]]"
+  }
+]
