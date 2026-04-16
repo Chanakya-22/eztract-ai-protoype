@@ -24,6 +24,28 @@ def get_all_plots(db: Session = Depends(database.get_db)):
     plots = db.query(models.Plot).all()
     return {"status": "success", "data": plots}
 
+@app.post("/api/plots")
+def create_plot(plot_data: schemas.PlotCreate, db: Session = Depends(database.get_db)):
+    # Convert the string status to the Enum expected by the database
+    db_status = models.PlotStatus(plot_data.status)
+    
+    new_plot = models.Plot(
+        plot_number=plot_data.plot_number,
+        width_ft=plot_data.width_ft,
+        length_ft=plot_data.length_ft,
+        total_area_sqft=plot_data.total_area_sqft,
+        base_price=plot_data.base_price,
+        status=db_status,
+        buyer_name=plot_data.buyer_name,
+        contact_number=plot_data.contact_number,
+        managed_by=plot_data.managed_by,
+        polygon_coordinates=plot_data.polygon_coordinates
+    )
+    db.add(new_plot)
+    db.commit()
+    db.refresh(new_plot)
+    return {"status": "success", "message": "Plot saved successfully!"}
+
 # A simple root check to ensure the server is running
 @app.get("/")
 def read_root():

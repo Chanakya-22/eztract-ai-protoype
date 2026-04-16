@@ -23,3 +23,13 @@ export const predictPlotPrice = async (shapeData) => {
         return null;
     }
 };
+
+export const savePlotToDB = async (plotData) => {
+    try {
+        const response = await axios.post(`${API_URL}/plots`, plotData);
+        return response.data;
+    } catch (error) {
+        console.error("Error saving plot:", error);
+        return null;
+    }
+};
