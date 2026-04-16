@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { fetchPlots, predictPlotPrice, savePlotToDB } from '../services/api';
-import { Map, Loader2, PlusCircle, CheckCircle } from 'lucide-react';
+import { fetchPlots, predictPlotPrice, savePlotToDB, updatePlotInDB, deletePlotFromDB } from '../services/api';
+import { Map, Loader2, PlusCircle, CheckCircle, Search, Edit2, Trash2, X } from 'lucide-react';
 
 const PlotCanvas = dynamic(() => import('../components/PlotCanvas'), { ssr: false });
 
@@ -24,6 +24,37 @@ export default function Dashboard() {
   });
   const [isSaving, setIsSaving] = useState(false);
 
+  // NEW: View Plot Modal State
+  const [viewPlot, setViewPlot] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState({});
+
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+
+  const { totalValuation, soldPercentage, totalArea } = useMemo(() => {
+    let tv = 0, sc = 0, ta = 0;
+    plots.forEach(p => {
+      tv += p.base_price || 0;
+      ta += p.total_area_sqft || 0;
+      if (p.status === 'Sold') sc++;
+    });
+    return {
+      totalValuation: tv,
+      totalArea: ta,
+      soldPercentage: plots.length > 0 ? Math.round((sc / plots.length) * 100) : 0
+    };
+  }, [plots]);
+
+  const filteredPlots = useMemo(() => {
+    return plots.filter(plot => {
+      const matchesSearch = plot.plot_number.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === 'All' || plot.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [plots, searchQuery, statusFilter]);
+
   // Fetch all plots
   const loadData = async () => {
     setLoading(true);
@@ -40,8 +71,14 @@ export default function Dashboard() {
   };
 
   const handlePlotClick = (plot) => {
-      // In the future, this can open an edit modal. For now, we alert to show it works.
-      alert(`Clicked Plot ${plot.plot_number}\nStatus: ${plot.status}\nBuyer: ${plot.buyer_name || 'N/A'}`);
+      setViewPlot(plot);
+      setIsEditing(false);
+      setEditFormData({
+          status: plot.status,
+          buyer_name: plot.buyer_name || '',
+          contact_number: plot.contact_number || '',
+          managed_by: plot.managed_by || ''
+      });
   };
 
   const handleAIInit = async () => {
@@ -95,32 +132,94 @@ export default function Dashboard() {
     setFormData({ plot_number: '', buyer_name: '', contact_number: '', managed_by: '', status: 'Available' });
   };
 
+  const handleUpdatePlot = async () => {
+      setIsSaving(true);
+      const res = await updatePlotInDB(viewPlot.id, editFormData);
+      if (res) {
+          await loadData();
+          setViewPlot({ ...viewPlot, ...editFormData });
+          setIsEditing(false);
+      } else {
+          alert("Failed to update plot.");
+      }
+      setIsSaving(false);
+  };
+
+  const handleDeletePlot = async () => {
+      if (!confirm("Are you sure you want to permanently delete this plot?")) return;
+      setIsSaving(true);
+      const res = await deletePlotFromDB(viewPlot.id);
+      if (res) {
+          await loadData();
+          setViewPlot(null);
+      } else {
+          alert("Failed to delete plot.");
+      }
+      setIsSaving(false);
+  };
+
   return (
     <div className="min-h-screen bg-neutral-950 text-white p-8">
-      <header className="mb-8 flex items-center gap-3 border-b border-neutral-800 pb-6">
-        <Map className="text-emerald-500 w-8 h-8" />
-        <div>
-          <h1 className="text-3xl font-light tracking-tight">EZTract <span className="font-semibold text-emerald-500">AI Prototype</span></h1>
-          <p className="text-neutral-400 text-sm mt-1">Kumaran Nagar Layout - Admin Interface</p>
+      <header className="mb-8 flex items-center justify-between border-b border-neutral-800 pb-6">
+        <div className="flex items-center gap-3">
+          <Map className="text-emerald-500 w-8 h-8" />
+          <div>
+            <h1 className="text-3xl font-light tracking-tight">EZTract <span className="font-semibold text-emerald-500">AI Prototype</span></h1>
+            <p className="text-neutral-400 text-sm mt-1">Kumaran Nagar Layout - Admin Interface</p>
+          </div>
+        </div>
+        <div className="flex gap-6 hidden md:flex">
+            <div className="bg-neutral-900 border border-neutral-800 px-5 py-3 rounded-xl min-w-[140px]">
+                <p className="text-xs text-neutral-500 mb-1">Total Valuation</p>
+                <p className="text-xl font-bold text-emerald-400">₹{totalValuation.toLocaleString('en-IN')}</p>
+            </div>
+            <div className="bg-neutral-900 border border-neutral-800 px-5 py-3 rounded-xl min-w-[140px]">
+                <p className="text-xs text-neutral-500 mb-1">Mapped Area</p>
+                <p className="text-xl font-bold">{Math.round(totalArea).toLocaleString('en-IN')} <span className="text-sm font-normal text-neutral-400">sqft</span></p>
+            </div>
+            <div className="bg-neutral-900 border border-neutral-800 px-5 py-3 rounded-xl min-w-[140px]">
+                <p className="text-xs text-neutral-500 mb-1">Sold Inventory</p>
+                <div className="flex items-center gap-2">
+                   <p className="text-xl font-bold">{soldPercentage}%</p>
+                   <div className="w-20 h-2 bg-neutral-800 rounded-full overflow-hidden">
+                       <div className="h-full bg-emerald-500" style={{ width: `${soldPercentage}%` }}></div>
+                   </div>
+                </div>
+            </div>
         </div>
       </header>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="xl:col-span-2">
-           <PlotCanvas existingPlots={plots} onPlotDrawn={handlePlotDrawn} onPlotClick={handlePlotClick} />
+           <PlotCanvas existingPlots={plots} searchQuery={searchQuery} statusFilter={statusFilter} onPlotDrawn={handlePlotDrawn} onPlotClick={handlePlotClick} />
         </div>
 
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 h-[650px] overflow-y-auto">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 h-[650px] flex flex-col">
           <div className="flex justify-between items-center mb-4">
              <h2 className="text-xl font-bold flex items-center gap-2">Database Records</h2>
-             <span className="text-sm text-neutral-400">Total: {plots.length}</span>
+             <span className="text-sm text-neutral-400">Showing: {filteredPlots.length}</span>
+          </div>
+
+          <div className="space-y-3 mb-6">
+              <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-2.5 text-neutral-500" />
+                  <input type="text" placeholder="Search Plot #..." className="w-full bg-neutral-950 border border-neutral-800 rounded-lg pl-9 p-2 text-sm focus:border-emerald-500 outline-none transition-colors" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+              </div>
+              <div className="flex bg-neutral-950 rounded-lg p-1 border border-neutral-800">
+                  {['All', 'Available', 'Booked', 'Sold'].map(status => (
+                      <button key={status} onClick={() => setStatusFilter(status)} className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${statusFilter === status ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>
+                          {status}
+                      </button>
+                  ))}
+              </div>
           </div>
           
+          <div className="flex-1 overflow-y-auto pr-2 space-y-3">
           {loading ? (
             <div className="flex justify-center items-center h-32"><Loader2 className="animate-spin w-8 h-8 text-emerald-500" /></div>
           ) : (
-            <div className="space-y-3">
-              {plots.map((plot) => (
+            <>
+              {filteredPlots.map((plot) => (
                 <div key={plot.id} onClick={() => handlePlotClick(plot)} className="bg-neutral-950 border border-neutral-800 rounded-lg p-3 hover:border-emerald-500/50 cursor-pointer transition-colors">
                   <div className="flex justify-between items-center mb-1">
                     <span className="font-bold">Plot {plot.plot_number}</span>
@@ -132,8 +231,10 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
-            </div>
+              {filteredPlots.length === 0 && <p className="text-sm text-neutral-500 text-center py-6">No matching plots found.</p>}
+            </>
           )}
+          </div>
         </div>
       </div>
 
@@ -218,6 +319,101 @@ export default function Dashboard() {
                         {isSaving ? 'Saving...' : 'Save Plot to Database'}
                     </button>
                 )}
+           </div>
+        </div>
+      )}
+
+      {viewPlot && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+           <div className="bg-neutral-900 border border-neutral-700 p-8 rounded-2xl w-full max-w-lg shadow-2xl relative">
+              <button onClick={() => setViewPlot(null)} className="absolute top-4 right-4 text-neutral-500 hover:text-white transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+              
+              <div className="flex justify-between items-start mb-6">
+                 <div>
+                    <h2 className="text-2xl font-bold text-emerald-400">Plot {viewPlot.plot_number}</h2>
+                    <p className="text-sm text-neutral-400">Database Record</p>
+                 </div>
+                 <div className={`px-3 py-1 rounded-full text-xs font-bold ${viewPlot.status === 'Available' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : viewPlot.status === 'Sold' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
+                    {viewPlot.status}
+                 </div>
+              </div>
+
+              <div className="space-y-6">
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-800">
+                        <p className="text-xs text-neutral-500 mb-1">Dimensions</p>
+                        <p className="text-lg font-bold">{viewPlot.width_ft}' x {viewPlot.length_ft}'</p>
+                        <p className="text-xs text-neutral-400">{viewPlot.total_area_sqft} sqft</p>
+                    </div>
+                    <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-800">
+                        <p className="text-xs text-neutral-500 mb-1">Valuation</p>
+                        <p className="text-lg font-bold text-emerald-400">₹{viewPlot.base_price?.toLocaleString('en-IN')}</p>
+                    </div>
+                 </div>
+
+                 <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-800">
+                    <p className="text-xs text-neutral-500 mb-3">Registration Details</p>
+                    {isEditing ? (
+                       <div className="space-y-3">
+                           <div>
+                               <label className="text-xs text-neutral-400">Status</label>
+                               <select className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm mt-1 focus:border-emerald-500 outline-none"
+                                 value={editFormData.status} onChange={e => setEditFormData({...editFormData, status: e.target.value})}>
+                                   <option>Available</option><option>Booked</option><option>Sold</option>
+                               </select>
+                           </div>
+                           <div>
+                               <label className="text-xs text-neutral-400">Buyer Name</label>
+                               <input type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm mt-1 focus:border-emerald-500 outline-none" 
+                                 value={editFormData.buyer_name} onChange={e => setEditFormData({...editFormData, buyer_name: e.target.value})} />
+                           </div>
+                           <div>
+                               <label className="text-xs text-neutral-400">Contact Number</label>
+                               <input type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm mt-1 focus:border-emerald-500 outline-none" 
+                                 value={editFormData.contact_number} onChange={e => setEditFormData({...editFormData, contact_number: e.target.value})} />
+                           </div>
+                           <div>
+                               <label className="text-xs text-neutral-400">Managed By</label>
+                               <input type="text" className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm mt-1 focus:border-emerald-500 outline-none" 
+                                 value={editFormData.managed_by} onChange={e => setEditFormData({...editFormData, managed_by: e.target.value})} />
+                           </div>
+                       </div>
+                    ) : (
+                       <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                             <span className="text-neutral-400">Buyer Name</span>
+                             <span className="font-medium">{viewPlot.buyer_name || 'N/A'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                             <span className="text-neutral-400">Contact Number</span>
+                             <span className="font-medium">{viewPlot.contact_number || 'N/A'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                             <span className="text-neutral-400">Managed By</span>
+                             <span className="font-medium">{viewPlot.managed_by || 'N/A'}</span>
+                          </div>
+                       </div>
+                    )}
+                 </div>
+              </div>
+
+              <div className="mt-8 flex gap-4">
+                 {!isEditing ? (
+                    <>
+                       <button onClick={() => setIsEditing(true)} className="flex-1 px-6 py-3 rounded-xl font-medium bg-neutral-800 hover:bg-neutral-700 transition-colors flex justify-center items-center gap-2 text-sm"><Edit2 className="w-4 h-4"/> Edit</button>
+                       <button onClick={handleDeletePlot} disabled={isSaving} className="flex-1 px-6 py-3 rounded-xl font-medium bg-red-950 hover:bg-red-900 text-red-500 transition-colors flex justify-center items-center gap-2 text-sm disabled:opacity-50"><Trash2 className="w-4 h-4"/> Delete</button>
+                    </>
+                 ) : (
+                    <>
+                       <button onClick={() => setIsEditing(false)} className="flex-1 px-6 py-3 rounded-xl font-medium bg-neutral-800 hover:bg-neutral-700 transition-colors text-sm">Cancel Edit</button>
+                       <button onClick={handleUpdatePlot} disabled={isSaving} className="flex-1 px-6 py-3 rounded-xl font-medium bg-white text-black hover:bg-neutral-200 transition-colors flex justify-center items-center gap-2 text-sm disabled:opacity-50">
+                           {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <CheckCircle className="w-4 h-4"/>} Save Updates
+                       </button>
+                    </>
+                 )}
+              </div>
            </div>
         </div>
       )}

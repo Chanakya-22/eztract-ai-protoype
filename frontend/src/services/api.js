@@ -33,3 +33,23 @@ export const savePlotToDB = async (plotData) => {
         return null;
     }
 };
+
+export const updatePlotInDB = async (id, updatedData) => {
+    try {
+        const response = await axios.put(`${API_URL}/plots/${id}`, updatedData);
+        return response.data;
+    } catch (error) {
+        console.error("Error updating plot:", error);
+        return null;
+    }
+};
+
+export const deletePlotFromDB = async (id) => {
+    try {
+        const response = await axios.delete(`${API_URL}/plots/${id}`);
+        return response.data;
+    } catch (error) {
+        console.error("Error deleting plot:", error);
+        return null;
+    }
+};

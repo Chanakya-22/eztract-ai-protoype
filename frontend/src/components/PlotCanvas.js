@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Stage, Layer, Image as KonvaImage, Rect, Group, Text } from 'react-konva';
 import useImage from 'use-image';
 
-export default function PlotCanvas({ existingPlots, onPlotDrawn, onPlotClick }) {
+export default function PlotCanvas({ existingPlots, searchQuery, statusFilter, onPlotDrawn, onPlotClick }) {
   const [image] = useImage('/layout.jpg');
   const [isDrawing, setIsDrawing] = useState(false);
   const [newPlotRect, setNewPlotRect] = useState(null);
@@ -79,12 +79,20 @@ export default function PlotCanvas({ existingPlots, onPlotDrawn, onPlotClick }) 
             const rectProps = getRectProps(plot.polygon_coordinates);
             if (!rectProps) return null;
             
+            const isSearchActive = (searchQuery && searchQuery.length > 0) || (statusFilter && statusFilter !== 'All');
+            const matchesSearch = !searchQuery || plot.plot_number.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesStatus = !statusFilter || statusFilter === 'All' || plot.status === statusFilter;
+            const isMatch = matchesSearch && matchesStatus;
+
+            const opacity = isSearchActive ? (isMatch ? 1 : 0.1) : 1;
+            const isClickable = isMatch;
+
             const fillColor = plot.status === 'Available' ? 'rgba(16, 185, 129, 0.4)' : 
                               plot.status === 'Sold' ? 'rgba(239, 68, 68, 0.4)' : 
                               'rgba(245, 158, 11, 0.4)'; 
 
             return (
-              <Group key={plot.id}>
+              <Group key={plot.id} opacity={opacity} listening={isClickable}>
                 <Rect
                   id={`plot-${plot.id}`}
                   x={rectProps.x} y={rectProps.y}

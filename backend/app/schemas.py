@@ -27,3 +27,9 @@ class PlotCreate(BaseModel):
     contact_number: Optional[str] = None
     managed_by: Optional[str] = None
     polygon_coordinates: str
+
+class PlotUpdate(BaseModel):
+    status: Optional[str] = None
+    buyer_name: Optional[str] = None
+    contact_number: Optional[str] = None
+    managed_by: Optional[str] = None

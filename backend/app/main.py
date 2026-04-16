@@ -46,6 +46,38 @@ def create_plot(plot_data: schemas.PlotCreate, db: Session = Depends(database.ge
     db.refresh(new_plot)
     return {"status": "success", "message": "Plot saved successfully!"}
 
+# Endpoint 3: Update an existing plot
+@app.put("/api/plots/{plot_id}")
+def update_plot(plot_id: int, plot_data: schemas.PlotUpdate, db: Session = Depends(database.get_db)):
+    plot = db.query(models.Plot).filter(models.Plot.id == plot_id).first()
+    if not plot:
+        return {"status": "error", "message": "Plot not found"}
+
+    if plot_data.status is not None:
+        plot.status = models.PlotStatus(plot_data.status)
+    # If the user sets these back to empty, but passing "" isn't None. We will just update unconditionally if provided.
+    if plot_data.buyer_name is not None:
+        plot.buyer_name = plot_data.buyer_name
+    if plot_data.contact_number is not None:
+        plot.contact_number = plot_data.contact_number
+    if plot_data.managed_by is not None:
+        plot.managed_by = plot_data.managed_by
+
+    db.commit()
+    db.refresh(plot)
+    return {"status": "success", "message": "Plot updated successfully!"}
+
+# Endpoint 4: Delete an existing plot
+@app.delete("/api/plots/{plot_id}")
+def delete_plot(plot_id: int, db: Session = Depends(database.get_db)):
+    plot = db.query(models.Plot).filter(models.Plot.id == plot_id).first()
+    if not plot:
+        return {"status": "error", "message": "Plot not found"}
+        
+    db.delete(plot)
+    db.commit()
+    return {"status": "success", "message": "Plot deleted successfully!"}
+
 # A simple root check to ensure the server is running
 @app.get("/")
 def read_root():
