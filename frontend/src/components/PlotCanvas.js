@@ -9,7 +9,7 @@ export default function PlotCanvas({ existingPlots, onPlotDrawn, onPlotClick }) 
   const [newPlotRect, setNewPlotRect] = useState(null);
   const [hoveredPlot, setHoveredPlot] = useState(null); 
   
-  // NEW: State to track mouse position for the tooltip
+  // State to track mouse position for the tooltip
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 
@@ -39,7 +39,6 @@ export default function PlotCanvas({ existingPlots, onPlotDrawn, onPlotClick }) 
   };
 
   const handleMouseMove = (e) => {
-    // NEW: Always update tooltip position if we are hovering over a plot
     if (hoveredPlot) {
       setMousePos({ x: e.evt.clientX, y: e.evt.clientY });
     }
@@ -62,7 +61,6 @@ export default function PlotCanvas({ existingPlots, onPlotDrawn, onPlotClick }) 
   };
 
   return (
-    // Removed overflow-hidden so tooltip can float freely if needed
     <div className="border border-neutral-700 rounded-xl shadow-2xl bg-neutral-900 relative">
       <div className="bg-neutral-800 p-3 border-b border-neutral-700 flex justify-between items-center">
         <h3 className="text-white font-medium">Interactive Site Map</h3>
@@ -99,7 +97,11 @@ export default function PlotCanvas({ existingPlots, onPlotDrawn, onPlotClick }) 
                     setMousePos({ x: e.evt.clientX, y: e.evt.clientY });
                   }}
                   onMouseLeave={() => setHoveredPlot(null)}
-                  onClick={() => onPlotClick(plot)} 
+                  onClick={(e) => {
+                    // CRITICAL FIX: Stops the background canvas from interpreting this click as a "draw" action
+                    e.cancelBubble = true; 
+                    onPlotClick(plot);
+                  }} 
                 />
                 <Text 
                   x={rectProps.x} y={rectProps.y + (rectProps.height / 2) - 6}
@@ -123,16 +125,13 @@ export default function PlotCanvas({ existingPlots, onPlotDrawn, onPlotClick }) 
         </Layer>
       </Stage>
 
-      {/* NEW: Floating Tooltip locked to mouse coordinates */}
       {hoveredPlot && (
         <div 
           className="fixed bg-neutral-950/95 backdrop-blur border border-neutral-700 text-white p-4 rounded-xl shadow-2xl pointer-events-none z-[100] w-64 transition-opacity duration-150"
           style={{ 
             left: `${mousePos.x + 20}px`, 
             top: `${mousePos.y + 20}px`,
-            // Prevent clipping on the right side of the screen
             transform: mousePos.x > window.innerWidth - 300 ? 'translateX(-110%)' : 'none',
-            // Prevent clipping on the bottom of the screen
             marginTop: mousePos.y > window.innerHeight - 200 ? '-150px' : '0'
           }}
         >
