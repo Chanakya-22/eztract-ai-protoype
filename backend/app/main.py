@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 from . import models, schemas, database
 import math
 from . import schemas
+from . import models
+from .database import engine
+
 
 # Initialize the FastAPI app
 app = FastAPI(title="EZTract AI Prototype API")
@@ -11,18 +14,31 @@ app = FastAPI(title="EZTract AI Prototype API")
 # Setup CORS (Crucial so your Next.js frontend on localhost:3000 can communicate with this API)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, we change "*" to your actual frontend URL
+    allow_origins=["http://localhost:3000"],  # ← exact origin, not "*"
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 # Endpoint 1: Fetch all plots to display on the map
 @app.get("/api/plots")
 def get_all_plots(db: Session = Depends(database.get_db)):
-    # Query the database for all rows in the Plot table
     plots = db.query(models.Plot).all()
-    return {"status": "success", "data": plots}
+    result = []
+    for plot in plots:
+        result.append({
+            "id": plot.id,
+            "plot_number": plot.plot_number,
+            "width_ft": plot.width_ft,
+            "length_ft": plot.length_ft,
+            "total_area_sqft": plot.total_area_sqft,
+            "base_price": plot.base_price,
+            "status": plot.status.value if plot.status else "Available",
+            "buyer_name": plot.buyer_name,
+            "contact_number": plot.contact_number,
+            "managed_by": plot.managed_by,
+            "polygon_coordinates": plot.polygon_coordinates,
+        })
+    return {"status": "success", "data": result}
 
 @app.post("/api/plots")
 def create_plot(plot_data: schemas.PlotCreate, db: Session = Depends(database.get_db)):
