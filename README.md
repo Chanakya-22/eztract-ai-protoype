@@ -136,6 +136,6 @@ eztract-ai-prototype/
 
 <div align="center">
 
-Built by [Chanakya-22](https://github.com/Chanakya-22) · Prototype · 2025
+Built by [Chanakya-22](https://github.com/Chanakya-22) · Prototype · 2026
 
 </div>
