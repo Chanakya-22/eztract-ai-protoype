@@ -1,0 +1,24 @@
+=======================================================
+EZTRACT AI PROTOTYPE - DEVELOPMENT ROADMAP
+=======================================================
+
+[x] PHASE 1: CORE ARCHITECTURE & DATA SANITIZATION (COMPLETED)
+    - Upgraded Next.js frontend to Apple-tier SaaS Dashboard.
+    - Implemented Dynamic Scaling Math for canvas (plots anchor permanently).
+    - Established "Ground Truth" in Supabase: 25 plots with exact sqft, real pricing (₹1200/sqft), and mixed availability/buyer statuses.
+
+[ ] PHASE 2: FRONTEND "AI INSIGHTS" UI (TOMORROW)
+    - Add a new tab/section to the Dashboard sidebar called "AI Revenue Insights".
+    - Design UI cards/panels to display dynamic AI outputs without cluttering the main map.
+
+[ ] PHASE 3: FASTAPI INTELLIGENCE ENGINE (TOMORROW)
+    Build the Python endpoints for the 4 Core AI Features:
+    1. Optimal Pricing Window: Statistical model predicting time-to-sell based on plot size and layout average.
+    2. Layout Completion Forecasting: Linear regression on "Sold" booking dates to predict total layout sell-out timeline.
+    3. Smart Plot Bundling: Use Python spatial libraries (Shapely) to find adjacent "Available" plots and suggest merged pricing.
+    4. Buyer Profile Matcher: Generative text matching plot size/price to a specific buyer persona and sales pitch.
+
+NOTES FOR TOMORROW: 
+- Do not touch the Map UI. It is locked and stable.
+- Focus entirely on the `backend/app/main.py` logic and the new React components for the Insights tab.
+=======================================================
