@@ -380,54 +380,76 @@ function MapEngine({ role }) {
         )}
       </div>
 
-      {/* VIEW PLOT MODAL */}
+      {/* VIEW PLOT MODAL (Comprehensive Database Inspector) */}
       {viewPlot && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-           <div className="bg-neutral-950 border border-white/10 p-10 rounded-[2rem] w-full max-w-lg shadow-2xl relative animate-in zoom-in-95 duration-300">
-              <button onClick={() => setViewPlot(null)} className="absolute top-6 right-6 text-neutral-500 hover:text-white bg-white/5 p-2 rounded-full">
+           <div className="bg-neutral-950 border border-white/10 p-8 rounded-[2rem] w-full max-w-lg shadow-2xl relative animate-in zoom-in-95 duration-300">
+              <button onClick={() => setViewPlot(null)} className="absolute top-6 right-6 text-neutral-500 hover:text-white bg-white/5 p-2 rounded-full transition-colors">
                 <X className="w-5 h-5" />
               </button>
               
               <div className="mb-8 text-center mt-2">
-                <span className={`inline-block px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest mb-6 border ${viewPlot.status === 'Available' ? 'bg-green-500/10 text-green-400 border-green-500/20' : viewPlot.status === 'Sold' ? 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
+                <span className={`inline-block px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest mb-6 border ${
+                  viewPlot.status === 'Available' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
+                  viewPlot.status === 'Sold' ? 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20' : 
+                  'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                }`}>
                   {viewPlot.status}
                 </span>
                 <h2 className="text-5xl font-medium text-white tracking-tighter">Plot {viewPlot.plot_number}</h2>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-black p-5 rounded-2xl border border-white/5 text-center flex flex-col justify-center">
-                    <p className="text-[10px] text-neutral-500 mb-1 uppercase tracking-widest font-semibold">Area</p>
-                    <p className="text-2xl font-light text-white">{viewPlot.total_area_sqft} <span className="text-xs text-neutral-500">sqft</span></p>
-                </div>
-                <div className="bg-black p-5 rounded-2xl border border-white/5 text-center flex flex-col justify-center">
-                    <p className="text-[10px] text-neutral-500 mb-1 uppercase tracking-widest font-semibold">Valuation</p>
-                    <p className="text-2xl font-medium text-white">₹{viewPlot.base_price.toLocaleString('en-IN')}</p>
-                </div>
-              </div>
+              <div className="space-y-4">
+                  {/* Physical Specifications */}
+                  <div className="bg-black border border-white/5 p-5 rounded-2xl">
+                      <h3 className="text-[10px] font-semibold text-neutral-500 uppercase tracking-widest mb-4">Physical Specifications</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <p className="text-xs text-neutral-500 mb-1">Total Area</p>
+                              <p className="text-xl font-medium text-white">{viewPlot.total_area_sqft} <span className="text-sm text-neutral-600">sqft</span></p>
+                          </div>
+                          <div>
+                              <p className="text-xs text-neutral-500 mb-1">Calculated Dimensions</p>
+                              <p className="text-xl font-medium text-white">{viewPlot.width_ft}' × {viewPlot.length_ft}'</p>
+                          </div>
+                      </div>
+                  </div>
 
-              {viewPlot.status !== 'Available' ? (
-                <div className="bg-white/5 border border-white/10 p-5 rounded-2xl space-y-3">
-                  <h3 className="text-[10px] font-semibold text-neutral-400 uppercase tracking-widest text-center mb-3">Registration Details</h3>
-                  {viewPlot.buyer_name && (
-                    <div className="flex items-center justify-between text-white border-b border-white/5 pb-2">
-                      <span className="text-neutral-500 text-xs flex items-center gap-2"><User className="w-3 h-3"/> Buyer</span>
-                      <span className="font-medium text-sm">{viewPlot.buyer_name}</span>
-                    </div>
-                  )}
-                  {viewPlot.contact_number && (
-                    <div className="flex items-center justify-between text-white border-b border-white/5 pb-2">
-                      <span className="text-neutral-500 text-xs flex items-center gap-2"><Phone className="w-3 h-3"/> Contact</span>
-                      <span className="font-mono text-xs bg-black px-2 py-1 rounded-md">{viewPlot.contact_number}</span>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="bg-black border border-white/5 p-6 rounded-2xl text-center flex flex-col items-center">
-                  <ShieldCheck className="w-6 h-6 text-neutral-600 mb-2" />
-                  <p className="text-neutral-400 text-xs font-light">Cleared for acquisition.</p>
-                </div>
-              )}
+                  {/* Registry & Financial Details */}
+                  <div className="bg-black border border-white/5 p-5 rounded-2xl">
+                      <h3 className="text-[10px] font-semibold text-neutral-500 uppercase tracking-widest mb-4">Registry & Financials</h3>
+                      <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+                          <div>
+                              <p className="text-xs text-neutral-500 mb-1">Base Valuation</p>
+                              <p className="text-xl font-medium text-emerald-400">₹{viewPlot.base_price.toLocaleString('en-IN')}</p>
+                          </div>
+                          <div>
+                              <p className="text-xs text-neutral-500 mb-1">Managed By (Agent)</p>
+                              <p className="text-sm font-medium text-white mt-1">
+                                {viewPlot.managed_by || <span className="text-neutral-700 italic">Unassigned</span>}
+                              </p>
+                          </div>
+                          
+                          {/* Force display of Buyer/Contact fields even if empty/Available */}
+                          <div className="col-span-2 border-t border-white/5 pt-5 mt-1">
+                              <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                      <p className="text-xs text-neutral-500 mb-1 flex items-center gap-1.5"><User className="w-3 h-3"/> Buyer Name</p>
+                                      <p className="text-sm font-medium text-white mt-1">
+                                        {viewPlot.buyer_name || <span className="text-neutral-700 italic">Not Registered</span>}
+                                      </p>
+                                  </div>
+                                  <div>
+                                      <p className="text-xs text-neutral-500 mb-1 flex items-center gap-1.5"><Phone className="w-3 h-3"/> Contact Phone</p>
+                                      <p className="text-sm font-mono text-white mt-1 bg-white/5 inline-block px-2 py-0.5 rounded">
+                                        {viewPlot.contact_number || <span className="text-neutral-700 italic">No Data</span>}
+                                      </p>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
            </div>
         </div>
       )}
