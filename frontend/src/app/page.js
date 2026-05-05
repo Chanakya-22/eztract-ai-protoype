@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { fetchPlots, predictPlotPrice, savePlotToDB } from '../services/api';
+import { fetchPlots, predictPlotPrice, savePlotToDB, fetchPricingInsight } from '../services/api';
 import { 
   Loader2, PlusCircle, CheckCircle, X, User, Phone, ShieldCheck, ArrowRight, Lock, 
   Eye, EyeOff, Command, Layers, Cpu, Database, Map, LayoutDashboard, Settings, LogOut, 
-  FileText, Search, TrendingUp, Clock, Users, Link
+  FileText, Search, TrendingUp, Clock, Users, Link, Info, TrendingDown
 } from 'lucide-react';
 
 const PlotCanvas = dynamic(() => import('../components/PlotCanvas'), { ssr: false });
@@ -210,9 +210,21 @@ function ProjectsDashboard({ projects, onSelectProject, role }) {
 }
 
 // ==========================================
-// PHASE 2: AI REVENUE INSIGHTS DASHBOARD
+// PHASE 2 & 3: AI REVENUE INSIGHTS DASHBOARD
 // ==========================================
 function InsightsDashboard({ role }) {
+  const [pricingInsight, setPricingInsight] = useState(null);
+  const [loadingInsight, setLoadingInsight] = useState(false);
+  const [targetPlot, setTargetPlot] = useState("");
+
+  const handleRunInference = async () => {
+    if (!targetPlot) return;
+    setLoadingInsight(true);
+    const data = await fetchPricingInsight(targetPlot);
+    setPricingInsight(data);
+    setLoadingInsight(false);
+  };
+
   return (
     <div className="p-8 max-w-7xl mx-auto w-full animate-in fade-in duration-500 overflow-y-auto h-full custom-scrollbar">
       <div className="mb-10">
@@ -230,72 +242,164 @@ function InsightsDashboard({ role }) {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
-        <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-8 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-6 opacity-5"><TrendingUp className="w-32 h-32" /></div>
-          <h3 className="text-lg font-medium text-white mb-6 flex items-center gap-2 relative z-10"><TrendingUp className="w-5 h-5 text-emerald-400" /> Optimal Pricing Window</h3>
-          <div className="space-y-4 relative z-10">
-             <div className="bg-black/50 p-4 rounded-2xl border border-white/5">
-                <p className="text-xs text-neutral-500 uppercase tracking-widest mb-1">Target: Plot 14</p>
-                <p className="text-lg text-white">78% probability of sale within <span className="text-emerald-400 font-bold">3 weeks</span> at ₹24.0L.</p>
-                <div className="w-full bg-neutral-800 h-1.5 rounded-full mt-3 overflow-hidden"><div className="bg-emerald-500 w-[78%] h-full rounded-full"></div></div>
-             </div>
-             <p className="text-sm text-neutral-400 border-l-2 border-amber-500/50 pl-3">Alert: Market velocity suggests a drop to 45% probability if priced above ₹26L.</p>
+        {/* Feature 1: Optimal Pricing Window (DYNAMIC WITH CREATIVE UI) */}
+        <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-8 relative overflow-hidden flex flex-col">
+          <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none"><TrendingUp className="w-32 h-32" /></div>
+          
+          <div className="flex justify-between items-center mb-6 relative z-10">
+            <h3 className="text-lg font-medium text-white flex items-center gap-2"><TrendingUp className="w-5 h-5 text-emerald-400" /> Optimal Pricing Window</h3>
+            <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg pr-1 overflow-hidden focus-within:border-emerald-500 transition-colors">
+               <span className="text-xs text-neutral-500 pl-3 uppercase tracking-widest font-semibold">Plot</span>
+               <input 
+                 type="text" 
+                 value={targetPlot} 
+                 onChange={(e) => setTargetPlot(e.target.value)} 
+                 className="bg-transparent py-1.5 w-12 text-white text-sm outline-none text-center font-mono" 
+                 placeholder="#" 
+               />
+            </div>
           </div>
-          {role === 'admin' && <button className="mt-6 w-full py-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-medium transition-colors border border-white/5">Run Live Inference</button>}
+
+          <div className="flex-1 relative z-10 mb-6 flex flex-col justify-center">
+             {loadingInsight ? (
+               <div className="flex h-full min-h-[150px] items-center justify-center text-emerald-500"><Loader2 className="w-8 h-8 animate-spin" /></div>
+             ) : pricingInsight ? (
+               <div className="animate-in fade-in zoom-in-95 duration-500 flex flex-col h-full justify-between">
+                 <div className="flex items-end justify-between mb-6">
+                    <div>
+                      <p className="text-[10px] text-neutral-500 uppercase tracking-widest font-semibold mb-1">Target: Plot {pricingInsight.plot_number}</p>
+                      <p className="text-4xl font-light text-white tracking-tight">₹{(pricingInsight.optimal_price / 100000).toFixed(1)}<span className="text-xl text-emerald-500 font-medium ml-1">Lakh</span></p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-neutral-500 uppercase tracking-widest font-semibold mb-1">Sale Window</p>
+                      <p className="text-2xl font-medium text-emerald-400">{pricingInsight.timeframe_weeks} <span className="text-sm font-light text-emerald-500/70">Wks</span></p>
+                    </div>
+                 </div>
+
+                 <div className="space-y-4">
+                    <div className="bg-black/60 p-4 rounded-xl border border-white/5">
+                       <div className="flex justify-between text-sm mb-2">
+                         <span className="text-neutral-300 font-medium">Probability of Sale</span>
+                         <span className="text-emerald-400 font-bold">{pricingInsight.probability_optimal}%</span>
+                       </div>
+                       <div className="w-full bg-neutral-800 h-2 rounded-full overflow-hidden">
+                          <div className="bg-emerald-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${pricingInsight.probability_optimal}%` }}></div>
+                       </div>
+                    </div>
+
+                    <div className="bg-red-500/5 border border-red-500/10 p-4 rounded-xl flex gap-3 items-start">
+                       <div className="bg-red-500/20 p-1.5 rounded-md mt-0.5"><TrendingDown className="w-4 h-4 text-red-400" /></div>
+                       <div>
+                         <p className="text-sm text-white font-medium mb-1">Overpricing Penalty Alert</p>
+                         <p className="text-xs text-neutral-400 leading-relaxed">Pricing above <span className="text-red-400 font-mono">₹{(pricingInsight.drop_price_threshold / 100000).toFixed(1)}L</span> will crash the sale probability to <strong className="text-white">{pricingInsight.probability_drop}%</strong> due to current market velocity.</p>
+                       </div>
+                    </div>
+                 </div>
+               </div>
+             ) : (
+                <div className="bg-black/50 p-6 rounded-2xl border border-white/5 h-full flex flex-col justify-center">
+                  <h4 className="text-sm font-medium text-emerald-400 mb-2 flex items-center gap-2"><Info className="w-4 h-4" /> How this model works</h4>
+                  <p className="text-sm text-neutral-400 leading-relaxed font-light">
+                    Calculates a live moving average of your layout's current price-per-square-foot. It then applies spatial velocity modifiers (smaller plots sell significantly faster) to predict the exact window of time a specific plot will take to sell, and calculates hard price-drop thresholds.
+                  </p>
+                </div>
+             )}
+          </div>
+          
+          {role === 'admin' && (
+            <button 
+              onClick={handleRunInference} 
+              disabled={loadingInsight || !targetPlot} 
+              className="w-full py-3.5 bg-white text-black hover:bg-neutral-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:hover:bg-white"
+            >
+              {loadingInsight ? 'Calculating Model...' : 'Run Live Inference'}
+            </button>
+          )}
         </div>
 
-        <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-6 opacity-5"><Clock className="w-32 h-32" /></div>
+        {/* Feature 2: Completion Forecasting (PLACEHOLDER WITH INFO) */}
+        <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-8 relative overflow-hidden flex flex-col">
+          <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none"><Clock className="w-32 h-32" /></div>
           <h3 className="text-lg font-medium text-white mb-6 flex items-center gap-2 relative z-10"><Clock className="w-5 h-5 text-blue-400" /> Completion Forecasting</h3>
-          <div className="grid grid-cols-2 gap-4 relative z-10 mb-4">
+          
+          <div className="bg-black/50 p-5 rounded-2xl border border-white/5 mb-6 flex gap-3 items-start relative z-10">
+              <Info className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-neutral-400 font-light leading-relaxed">
+                  <strong className="text-neutral-200 font-medium">Model Architecture: </strong> 
+                  Uses a linear regression algorithm on historical 'Sold' statuses and local market velocity to project the exact month your entire layout will reach 100% capacity.
+              </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 relative z-10 mb-4 opacity-60">
              <div className="bg-black/50 p-5 rounded-2xl border border-white/5 text-center">
-                <p className="text-xs text-neutral-500 uppercase tracking-widest mb-1">Proj. Sell-Out</p>
+                <p className="text-[10px] text-neutral-500 uppercase tracking-widest mb-1 font-semibold">Proj. Sell-Out</p>
                 <p className="text-2xl font-light text-white">Nov 2026</p>
              </div>
              <div className="bg-black/50 p-5 rounded-2xl border border-white/5 text-center">
-                <p className="text-xs text-neutral-500 uppercase tracking-widest mb-1">Current Velocity</p>
-                <p className="text-2xl font-light text-white">4.2 <span className="text-sm text-neutral-500">plots/mo</span></p>
+                <p className="text-[10px] text-neutral-500 uppercase tracking-widest mb-1 font-semibold">Current Velocity</p>
+                <p className="text-2xl font-light text-white">4.2 <span className="text-xs text-neutral-500">plots/mo</span></p>
              </div>
           </div>
-          <p className="text-sm text-neutral-400 relative z-10">AI Suggestion: Applying a 5% discount to corner plots (12, 25) will reduce total layout clearing time by 1.2 months.</p>
+          <p className="text-xs text-neutral-500 relative z-10 italic opacity-60 px-2">Example: Applying a 5% discount to corner plots (12, 25) will reduce total layout clearing time by 1.2 months.</p>
         </div>
 
-        <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-8 relative overflow-hidden">
+        {/* Feature 3: Smart Plot Bundling (PLACEHOLDER WITH INFO) */}
+        <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-8 relative overflow-hidden flex flex-col">
           <h3 className="text-lg font-medium text-white mb-6 flex items-center gap-2"><Link className="w-5 h-5 text-purple-400" /> Smart Plot Bundling</h3>
-          <p className="text-sm text-neutral-400 mb-6">Spatial coordinates indicate the following adjacent plots can be merged for high-ticket buyers.</p>
-          <div className="space-y-3">
+          
+          <div className="bg-black/50 p-5 rounded-2xl border border-white/5 mb-6 flex gap-3 items-start relative z-10">
+              <Info className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-neutral-400 font-light leading-relaxed">
+                  <strong className="text-neutral-200 font-medium">Model Architecture: </strong> 
+                  A spatial analysis script that scans geometric coordinates to identify adjacent 'Available' plots, automatically clustering them to suggest high-ticket bundles for premium buyers.
+              </p>
+          </div>
+
+          <div className="space-y-3 opacity-60">
              <div className="flex items-center justify-between bg-black/50 p-4 rounded-2xl border border-white/5">
                 <div>
-                   <p className="text-white font-medium">Merge: Plot 5 + Plot 6</p>
-                   <p className="text-xs text-neutral-500">Total: 4,800 sqft</p>
+                   <p className="text-sm text-white font-medium">Merge: Plot 5 + Plot 6</p>
+                   <p className="text-xs text-neutral-500 mt-0.5">Total Area: 4,800 sqft</p>
                 </div>
                 <div className="text-right">
-                   <p className="text-purple-400 font-bold">₹57.6L</p>
-                   <p className="text-[10px] text-green-500 uppercase tracking-widest">Highly Viable</p>
+                   <p className="text-purple-400 font-bold tracking-wide">₹57.6L</p>
+                   <p className="text-[9px] text-green-500 uppercase tracking-widest mt-1">Highly Viable</p>
                 </div>
              </div>
              <div className="flex items-center justify-between bg-black/50 p-4 rounded-2xl border border-white/5">
                 <div>
-                   <p className="text-white font-medium">Merge: Plot 18 + Plot 23</p>
-                   <p className="text-xs text-neutral-500">Total: 3,000 sqft</p>
+                   <p className="text-sm text-white font-medium">Merge: Plot 18 + Plot 23</p>
+                   <p className="text-xs text-neutral-500 mt-0.5">Total Area: 3,000 sqft</p>
                 </div>
                 <div className="text-right">
-                   <p className="text-white font-medium">₹36.0L</p>
+                   <p className="text-white font-medium tracking-wide">₹36.0L</p>
                 </div>
              </div>
           </div>
         </div>
 
-        <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-8 relative overflow-hidden">
-          <h3 className="text-lg font-medium text-white mb-6 flex items-center gap-2"><Users className="w-5 h-5 text-cyan-400" /> Buyer Profile Matcher</h3>
-          <div className="bg-cyan-500/5 border border-cyan-500/10 p-5 rounded-2xl mb-4">
-             <p className="text-xs text-cyan-500 uppercase tracking-widest mb-2 font-bold">Generated Persona: Mid-Tier Residential</p>
-             <p className="text-sm text-neutral-300 leading-relaxed">
-               "Plots in the 1,500-2,000 sqft range (₹18L - ₹24L) currently attract salaried IT professionals aged 32-45. 
-               <strong className="text-white"> Recommended Pitch:</strong> Emphasize proximity to schools, security of the layout, and long-term appreciation over immediate resale value."
-             </p>
+        {/* Feature 4: Buyer Profile Matcher (PLACEHOLDER WITH INFO) */}
+        <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-8 relative overflow-hidden flex flex-col justify-between">
+          <div>
+            <h3 className="text-lg font-medium text-white mb-6 flex items-center gap-2"><Users className="w-5 h-5 text-cyan-400" /> Buyer Profile Matcher</h3>
+            
+            <div className="bg-black/50 p-5 rounded-2xl border border-white/5 mb-6 flex gap-3 items-start relative z-10">
+                <Info className="w-4 h-4 text-cyan-400 mt-0.5 shrink-0" />
+                <p className="text-xs text-neutral-400 font-light leading-relaxed">
+                    <strong className="text-neutral-200 font-medium">Model Architecture: </strong> 
+                    A generative text model that cross-references plot dimensions and pricing against demographic data to synthesize a highly targeted buyer persona and actionable sales pitch.
+                </p>
+            </div>
+
+            <div className="bg-cyan-500/5 border border-cyan-500/10 p-5 rounded-2xl mb-4 opacity-80">
+               <p className="text-[10px] text-cyan-500 uppercase tracking-widest mb-3 font-bold">Generated Persona: Mid-Tier Residential</p>
+               <p className="text-sm text-neutral-300 leading-relaxed font-light">
+                 "Plots in the 1,500-2,000 sqft range (₹18L - ₹24L) currently attract salaried IT professionals aged 32-45. 
+                 <strong className="text-white font-medium"> Recommended Pitch:</strong> Emphasize proximity to schools, security of the layout, and long-term appreciation over immediate resale value."
+               </p>
+            </div>
           </div>
-          {role === 'admin' && <button className="w-full py-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-medium transition-colors border border-white/5">Generate New Pitch via GenAI</button>}
+          {role === 'admin' && <button className="w-full py-3.5 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-medium transition-colors border border-white/5 mt-4">Generate New Pitch via GenAI</button>}
         </div>
       </div>
     </div>
