@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactCompiler: true,
+  reactCompiler: false,
   async rewrites() {
     return [
       {

@@ -79,10 +79,24 @@ export default function MasterApp() {
           <div className="flex justify-center mb-8"><div className="bg-emerald-500/10 p-4 rounded-full"><Lock className="w-8 h-8 text-emerald-500" /></div></div>
           <h2 className="text-3xl font-medium text-center text-white mb-2 tracking-tight">Admin Gateway</h2>
           
-          <form onSubmit={(e) => {
+          <form onSubmit={async (e) => {
             e.preventDefault();
-            if (e.target.password.value === 'admin123') { setRole('admin'); setCurrentView('dashboard'); } 
-            else { alert('Incorrect Password.'); }
+            const password = e.target.password.value;
+            try {
+              const response = await fetch('/api/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password })
+              });
+              if (response.ok) {
+                setRole('admin');
+                setCurrentView('dashboard');
+              } else {
+                alert('Incorrect Password.');
+              }
+            } catch (error) {
+              alert('Login failed. Please try again.');
+            }
           }}>
             <div className="mb-8 relative mt-8">
               <input 
