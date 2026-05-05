@@ -31,3 +31,14 @@ export const savePlotToDB = async (plotData) => {
         return null;
     }
 };
+
+export const fetchPricingInsight = async (plotNumber) => {
+  try {
+    const response = await fetch(`http://localhost:8000/api/insights/pricing-window/${plotNumber}`);
+    if (!response.ok) throw new Error("Plot not found");
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching pricing insight:", error);
+    return null;
+  }
+};

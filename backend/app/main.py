@@ -1,12 +1,9 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from . import models, schemas, database
 import math
-from . import schemas
-from . import models
+from . import models, schemas, database
 from .database import engine
-
 
 # Initialize the FastAPI app
 app = FastAPI(title="EZTract AI Prototype API")
@@ -19,6 +16,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 # Endpoint 1: Fetch all plots to display on the map
 @app.get("/api/plots")
 def get_all_plots(db: Session = Depends(database.get_db)):
@@ -106,4 +104,78 @@ def predict_plot_price(shape: schemas.AIShapeRequest, db: Session = Depends(data
         "predicted_price": round(predicted_price, 2),
         "ai_insight": insight
     }
+from pydantic import BaseModel
+
+class LoginRequest(BaseModel):
+    password: str
+
+@app.post("/api/admin/login")
+def admin_login(req: LoginRequest):
+    if req.password == "admin123":
+        return {"status": "success", "role": "admin"}
+    raise HTTPException(status_code=401, detail="Incorrect Password")    
+
+
+# ==========================================
+# PHASE 3: AI INTELLIGENCE ENDPOINTS
+# ==========================================
+
+@app.get("/api/insights/pricing-window/{plot_number}", response_model=schemas.PricingWindowInsight)
+def get_pricing_window_insight(plot_number: str, db: Session = Depends(database.get_db)):
+    # 1. Fetch the target plot
+    target_plot = db.query(models.Plot).filter(models.Plot.plot_number == plot_number).first()
+    if not target_plot:
+        raise HTTPException(status_code=404, detail="Plot not found in database")
+
+    # 2. Gather Layout Ground Truth Data
+    all_plots = db.query(models.Plot).filter(models.Plot.total_area_sqft > 0).all()
+    if not all_plots:
+        raise HTTPException(status_code=400, detail="Insufficient layout data")
+
+    # Calculate live market average price-per-sqft across the whole layout
+    total_value = sum(p.base_price for p in all_plots if p.base_price)
+    total_sqft = sum(p.total_area_sqft for p in all_plots if p.total_area_sqft)
+    market_avg_psf = total_value / total_sqft if total_sqft else 1200
+
+    # 3. Statistical Analysis for Target Plot
+    plot_sqft = target_plot.total_area_sqft
     
+    # Baseline optimal price aligned with live market data
+    optimal_price = plot_sqft * market_avg_psf
+    
+    # Market Velocity Logic: Smaller plots (<1600 sqft) sell faster than massive ones
+    if plot_sqft <= 1600:
+        base_weeks = 2
+        prob_optimal = 82
+    elif plot_sqft <= 2400:
+        base_weeks = 3
+        prob_optimal = 78
+    else:
+        base_weeks = 5
+        prob_optimal = 65
+
+    # Penalty Logic: Overpricing by 10% kills the probability of a quick sale
+    drop_price_threshold = optimal_price * 1.10
+    prob_drop = prob_optimal - 33
+
+    # Format numbers into Indian Lakhs (L) for the GenAI string
+    def format_lakhs(price):
+        return f"₹{price / 100000:.1f}L"
+
+    # Construct the final intelligent pitch
+    insight_message = (
+        f"Plot {plot_number} has a {prob_optimal}% probability of sale within "
+        f"{base_weeks} weeks at {format_lakhs(optimal_price)}. "
+        f"Alert: Market velocity suggests a drop to {prob_drop}% probability "
+        f"if priced above {format_lakhs(drop_price_threshold)}."
+    )
+
+    return {
+        "plot_number": plot_number,
+        "optimal_price": optimal_price,
+        "probability_optimal": prob_optimal,
+        "timeframe_weeks": base_weeks,
+        "drop_price_threshold": drop_price_threshold,
+        "probability_drop": prob_drop,
+        "insight_message": insight_message
+    }
