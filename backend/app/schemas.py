@@ -27,3 +27,14 @@ class PlotCreate(BaseModel):
     contact_number: Optional[str] = None
     managed_by: Optional[str] = None
     polygon_coordinates: str
+    
+# --- AI INSIGHT SCHEMAS ---
+
+class PricingWindowInsight(BaseModel):
+    plot_number: str
+    optimal_price: float
+    probability_optimal: int
+    timeframe_weeks: int
+    drop_price_threshold: float
+    probability_drop: int
+    insight_message: str    
