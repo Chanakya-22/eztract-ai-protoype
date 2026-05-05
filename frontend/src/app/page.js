@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { fetchPlots, predictPlotPrice, savePlotToDB, fetchPricingInsight } from '../services/api';
+import { fetchPlots, predictPlotPrice, savePlotToDB, fetchPricingInsight, fetchCompletionForecast } from '../services/api';
 import { 
   Loader2, PlusCircle, CheckCircle, X, User, Phone, ShieldCheck, ArrowRight, Lock, 
   Eye, EyeOff, Command, Layers, Cpu, Database, Map, LayoutDashboard, Settings, LogOut, 
@@ -21,9 +21,6 @@ export default function MasterApp() {
   ]);
   const [selectedProject, setSelectedProject] = useState(null);
 
-  // ==========================================
-  // VIEW 1: MARKETING LANDING PAGE
-  // ==========================================
   if (currentView === 'landing') {
     return (
       <div className="min-h-screen bg-black text-white font-sans selection:bg-emerald-500/30 overflow-x-hidden">
@@ -67,9 +64,6 @@ export default function MasterApp() {
     );
   }
 
-  // ==========================================
-  // VIEW 2: ADMIN LOGIN
-  // ==========================================
   if (currentView === 'login') {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
@@ -115,9 +109,6 @@ export default function MasterApp() {
     );
   }
 
-  // ==========================================
-  // MAIN ROUTER 
-  // ==========================================
   return (
     <DashboardLayout role={role} currentView={currentView} onViewChange={setCurrentView} onLogout={() => setCurrentView('landing')}>
       {currentView === 'dashboard' && <ProjectsDashboard projects={projects} onSelectProject={(p) => { setSelectedProject(p); setCurrentView('map'); }} role={role} />}
@@ -127,9 +118,6 @@ export default function MasterApp() {
   );
 }
 
-// ==========================================
-// SAAS SIDEBAR LAYOUT WRAPPER 
-// ==========================================
 function DashboardLayout({ children, role, currentView, onViewChange, onLogout }) {
   return (
     <div className="min-h-screen bg-black text-white flex overflow-hidden font-sans">
@@ -171,9 +159,6 @@ function DashboardLayout({ children, role, currentView, onViewChange, onLogout }
   );
 }
 
-// ==========================================
-// PROJECTS OVERVIEW COMPONENT
-// ==========================================
 function ProjectsDashboard({ projects, onSelectProject, role }) {
   return (
     <div className="p-8 max-w-7xl mx-auto w-full animate-in fade-in duration-500 overflow-y-auto">
@@ -213,16 +198,28 @@ function ProjectsDashboard({ projects, onSelectProject, role }) {
 // PHASE 2 & 3: AI REVENUE INSIGHTS DASHBOARD
 // ==========================================
 function InsightsDashboard({ role }) {
+  // Feature 1 State
   const [pricingInsight, setPricingInsight] = useState(null);
-  const [loadingInsight, setLoadingInsight] = useState(false);
+  const [loadingPricing, setLoadingPricing] = useState(false);
   const [targetPlot, setTargetPlot] = useState("");
 
-  const handleRunInference = async () => {
+  // Feature 2 State
+  const [forecastInsight, setForecastInsight] = useState(null);
+  const [loadingForecast, setLoadingForecast] = useState(false);
+
+  const handleRunPricing = async () => {
     if (!targetPlot) return;
-    setLoadingInsight(true);
+    setLoadingPricing(true);
     const data = await fetchPricingInsight(targetPlot);
     setPricingInsight(data);
-    setLoadingInsight(false);
+    setLoadingPricing(false);
+  };
+
+  const handleRunForecast = async () => {
+    setLoadingForecast(true);
+    const data = await fetchCompletionForecast();
+    setForecastInsight(data);
+    setLoadingForecast(false);
   };
 
   return (
@@ -242,7 +239,7 @@ function InsightsDashboard({ role }) {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
-        {/* Feature 1: Optimal Pricing Window (DYNAMIC WITH CREATIVE UI) */}
+        {/* Feature 1: Optimal Pricing Window */}
         <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-8 relative overflow-hidden flex flex-col">
           <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none"><TrendingUp className="w-32 h-32" /></div>
           
@@ -261,7 +258,7 @@ function InsightsDashboard({ role }) {
           </div>
 
           <div className="flex-1 relative z-10 mb-6 flex flex-col justify-center">
-             {loadingInsight ? (
+             {loadingPricing ? (
                <div className="flex h-full min-h-[150px] items-center justify-center text-emerald-500"><Loader2 className="w-8 h-8 animate-spin" /></div>
              ) : pricingInsight ? (
                <div className="animate-in fade-in zoom-in-95 duration-500 flex flex-col h-full justify-between">
@@ -308,39 +305,60 @@ function InsightsDashboard({ role }) {
           
           {role === 'admin' && (
             <button 
-              onClick={handleRunInference} 
-              disabled={loadingInsight || !targetPlot} 
+              onClick={handleRunPricing} 
+              disabled={loadingPricing || !targetPlot} 
               className="w-full py-3.5 bg-white text-black hover:bg-neutral-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:hover:bg-white"
             >
-              {loadingInsight ? 'Calculating Model...' : 'Run Live Inference'}
+              {loadingPricing ? 'Calculating Model...' : 'Run Live Inference'}
             </button>
           )}
         </div>
 
-        {/* Feature 2: Completion Forecasting (PLACEHOLDER WITH INFO) */}
+        {/* Feature 2: Completion Forecasting (NOW DYNAMIC) */}
         <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-8 relative overflow-hidden flex flex-col">
           <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none"><Clock className="w-32 h-32" /></div>
           <h3 className="text-lg font-medium text-white mb-6 flex items-center gap-2 relative z-10"><Clock className="w-5 h-5 text-blue-400" /> Completion Forecasting</h3>
           
-          <div className="bg-black/50 p-5 rounded-2xl border border-white/5 mb-6 flex gap-3 items-start relative z-10">
-              <Info className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
-              <p className="text-xs text-neutral-400 font-light leading-relaxed">
-                  <strong className="text-neutral-200 font-medium">Model Architecture: </strong> 
-                  Uses a linear regression algorithm on historical 'Sold' statuses and local market velocity to project the exact month your entire layout will reach 100% capacity.
-              </p>
+          <div className="flex-1 relative z-10 mb-6 flex flex-col justify-center">
+            {loadingForecast ? (
+                <div className="flex h-full min-h-[150px] items-center justify-center text-blue-500"><Loader2 className="w-8 h-8 animate-spin" /></div>
+            ) : forecastInsight ? (
+                <div className="animate-in fade-in zoom-in-95 duration-500 flex flex-col h-full justify-between space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="bg-black/50 p-5 rounded-2xl border border-white/5 text-center">
+                        <p className="text-[10px] text-neutral-500 uppercase tracking-widest mb-2 font-semibold">Proj. Sell-Out</p>
+                        <p className="text-3xl font-light text-white">{forecastInsight.projected_sellout_date}</p>
+                     </div>
+                     <div className="bg-black/50 p-5 rounded-2xl border border-white/5 text-center">
+                        <p className="text-[10px] text-neutral-500 uppercase tracking-widest mb-2 font-semibold">Live Velocity</p>
+                        <p className="text-3xl font-light text-blue-400">{forecastInsight.current_velocity} <span className="text-sm font-medium text-blue-500/50">/mo</span></p>
+                     </div>
+                  </div>
+                  
+                  <div className="bg-blue-500/5 border border-blue-500/10 p-5 rounded-xl">
+                      <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Clock className="w-3 h-3" /> Predictive Strategy</p>
+                      <p className="text-sm text-neutral-300 leading-relaxed font-light">{forecastInsight.ai_suggestion}</p>
+                  </div>
+                </div>
+            ) : (
+                <div className="bg-black/50 p-6 rounded-2xl border border-white/5 h-full flex flex-col justify-center">
+                  <h4 className="text-sm font-medium text-blue-400 mb-2 flex items-center gap-2"><Info className="w-4 h-4" /> How this model works</h4>
+                  <p className="text-sm text-neutral-400 font-light leading-relaxed">
+                      Uses a linear regression algorithm on historical 'Sold' and 'Booked' statuses against the layout's active timeline to calculate market velocity. It then projects the exact month the entire layout will reach 100% capacity and offers strategic discount modeling.
+                  </p>
+                </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4 relative z-10 mb-4 opacity-60">
-             <div className="bg-black/50 p-5 rounded-2xl border border-white/5 text-center">
-                <p className="text-[10px] text-neutral-500 uppercase tracking-widest mb-1 font-semibold">Proj. Sell-Out</p>
-                <p className="text-2xl font-light text-white">Nov 2026</p>
-             </div>
-             <div className="bg-black/50 p-5 rounded-2xl border border-white/5 text-center">
-                <p className="text-[10px] text-neutral-500 uppercase tracking-widest mb-1 font-semibold">Current Velocity</p>
-                <p className="text-2xl font-light text-white">4.2 <span className="text-xs text-neutral-500">plots/mo</span></p>
-             </div>
-          </div>
-          <p className="text-xs text-neutral-500 relative z-10 italic opacity-60 px-2">Example: Applying a 5% discount to corner plots (12, 25) will reduce total layout clearing time by 1.2 months.</p>
+          {role === 'admin' && (
+            <button 
+              onClick={handleRunForecast} 
+              disabled={loadingForecast} 
+              className="w-full py-3.5 bg-white text-black hover:bg-neutral-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:hover:bg-white"
+            >
+              {loadingForecast ? 'Running Regression...' : 'Run Layout Analysis'}
+            </button>
+          )}
         </div>
 
         {/* Feature 3: Smart Plot Bundling (PLACEHOLDER WITH INFO) */}
