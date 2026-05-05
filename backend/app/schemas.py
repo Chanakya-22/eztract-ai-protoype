@@ -37,4 +37,10 @@ class PricingWindowInsight(BaseModel):
     timeframe_weeks: int
     drop_price_threshold: float
     probability_drop: int
-    insight_message: str    
+    insight_message: str
+        
+class CompletionForecastInsight(BaseModel):
+    projected_sellout_date: str
+    current_velocity: float
+    available_plots: int
+    ai_suggestion: str        

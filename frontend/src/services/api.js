@@ -42,3 +42,14 @@ export const fetchPricingInsight = async (plotNumber) => {
     return null;
   }
 };
+
+export const fetchCompletionForecast = async () => {
+  try {
+    const response = await fetch(`http://localhost:8000/api/insights/completion-forecast`);
+    if (!response.ok) throw new Error("Forecast failed");
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching forecast:", error);
+    return null;
+  }
+};

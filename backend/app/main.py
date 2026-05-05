@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 import math
 from . import models, schemas, database
 from .database import engine
+from datetime import datetime, timedelta
 
 # Initialize the FastAPI app
 app = FastAPI(title="EZTract AI Prototype API")
@@ -179,3 +180,43 @@ def get_pricing_window_insight(plot_number: str, db: Session = Depends(database.
         "probability_drop": prob_drop,
         "insight_message": insight_message
     }
+    
+@app.get("/api/insights/completion-forecast", response_model=schemas.CompletionForecastInsight)
+def get_completion_forecast(db: Session = Depends(database.get_db)):
+    all_plots = db.query(models.Plot).filter(models.Plot.total_area_sqft > 0).all()
+    if not all_plots:
+        raise HTTPException(status_code=400, detail="Insufficient layout data")
+        
+    total_plots = len(all_plots)
+    
+    # Count how many plots are off the market
+    sold_or_booked = len([p for p in all_plots if p.status.value in ["Sold", "Booked"]])
+    available = total_plots - sold_or_booked
+    
+    # Statistical Heuristic: Assume the project has been actively selling for 6 months
+    active_months = 6.0
+    velocity = sold_or_booked / active_months if active_months > 0 else 1.0
+    velocity = max(velocity, 0.5) # Set a floor so math doesn't divide by zero
+    
+    # Predict the future sell-out date
+    months_remaining = available / velocity
+    future_date = datetime.now() + timedelta(days=30 * months_remaining)
+    projected_date_str = future_date.strftime("%b %Y")
+    
+    # Dynamic AI Sales Suggestion
+    optimized_velocity = velocity * 1.35 # What if we increase velocity by 35%?
+    optimized_months_remaining = available / optimized_velocity
+    optimized_date = datetime.now() + timedelta(days=30 * optimized_months_remaining)
+    
+    suggestion = (
+        f"AI Suggestion: At {round(velocity, 1)} plots/mo, you have {math.ceil(months_remaining)} months of inventory left. "
+        f"Applying a targeted 5% discount to the {available} available plots could increase market velocity to "
+        f"{round(optimized_velocity, 1)} plots/mo, clearing the layout early by {optimized_date.strftime('%b %Y')}."
+    )
+    
+    return {
+        "projected_sellout_date": projected_date_str,
+        "current_velocity": round(velocity, 1),
+        "available_plots": available,
+        "ai_suggestion": suggestion
+    }    
