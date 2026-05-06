@@ -318,4 +318,16 @@ def get_buyer_persona(plot_number: str, db: Session = Depends(database.get_db)):
         "target_demographic": demo,
         "recommended_pitch": pitch
     }
-            
+          
+@app.patch("/api/plots/{plot_id}")
+def update_plot_status(plot_id: int, status_update: dict, db: Session = Depends(database.get_db)):
+    plot = db.query(models.Plot).filter(models.Plot.id == plot_id).first()
+    if not plot:
+        raise HTTPException(status_code=404, detail="Plot not found")
+    
+    new_status = status_update.get("status")
+    if new_status:
+        plot.status = new_status
+        db.commit()
+        db.refresh(plot)
+    return plot            

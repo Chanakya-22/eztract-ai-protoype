@@ -1,19 +1,61 @@
 "use client";
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { fetchPlots, predictPlotPrice, savePlotToDB, fetchPricingInsight, fetchCompletionForecast, fetchSmartBundling, fetchBuyerPersona } from '../services/api';
+import { fetchPlots, predictPlotPrice, savePlotToDB, fetchPricingInsight, fetchCompletionForecast, fetchSmartBundling, fetchBuyerPersona, updatePlotStatus } from '../services/api';
 import { 
   Loader2, PlusCircle, CheckCircle, X, User, Phone, ShieldCheck, ArrowRight, Lock, 
   Eye, EyeOff, Command, Layers, Cpu, Database, Map, LayoutDashboard, Settings, LogOut, 
-  FileText, Search, TrendingUp, Clock, Users, Link, Info, TrendingDown, RotateCcw, Sparkles
+  FileText, Search, TrendingUp, Clock, Users, Link, Info, TrendingDown, RotateCcw, Sparkles, Menu
 } from 'lucide-react';
 
 const PlotCanvas = dynamic(() => import('../components/PlotCanvas'), { ssr: false });
+
+// ==========================================
+// TOAST NOTIFICATION COMPONENT
+// ==========================================
+function ToastContainer({ toasts, removeToast }) {
+  return (
+    <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-3 pointer-events-none">
+      {toasts.map(toast => (
+        <div key={toast.id} className={`flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl animate-in slide-in-from-right-8 fade-in duration-300 pointer-events-auto border bg-neutral-950/95 backdrop-blur-md ${
+          toast.type === 'success' ? 'border-emerald-500/30' :
+          toast.type === 'error' ? 'border-red-500/30' :
+          'border-blue-500/30'
+        }`}>
+          {toast.type === 'success' ? <CheckCircle className="w-5 h-5 shrink-0 text-emerald-500" /> : 
+           toast.type === 'error' ? <X className="w-5 h-5 shrink-0 text-red-500" /> : 
+           <Info className="w-5 h-5 shrink-0 text-blue-500" />}
+          
+          <p className="text-sm font-medium text-white">{toast.message}</p>
+          
+          <button onClick={() => removeToast(toast.id)} className="ml-4 text-neutral-500 hover:text-white transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function MasterApp() {
   const [currentView, setCurrentView] = useState('landing'); 
   const [role, setRole] = useState('user'); 
   const [showPassword, setShowPassword] = useState(false);
+  
+  // TOAST STATE MANAGEMENT
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = (message, type = 'info') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000); 
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
   
   const [projects, setProjects] = useState([
     { id: 'proj_1', name: 'Kumaran Nagar Layout', location: 'Chennai, Tamil Nadu', totalArea: '4.2 Acres', status: 'Active', image: '/layout.jpg' },
@@ -21,130 +63,226 @@ export default function MasterApp() {
   ]);
   const [selectedProject, setSelectedProject] = useState(null);
 
-  if (currentView === 'landing') {
-    return (
-      <div className="min-h-screen bg-black text-white font-sans selection:bg-emerald-500/30 overflow-x-hidden">
-        <nav className="fixed top-0 w-full z-50 bg-black/50 backdrop-blur-xl border-b border-white/5">
-          <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-emerald-500 p-1.5 rounded-lg"><Command className="w-5 h-5 text-black" /></div>
-              <span className="font-bold tracking-wide text-lg">EZTract</span>
+  // WRAPPER FUNCTION TO RENDER CURRENT VIEW
+  const renderContent = () => {
+    if (currentView === 'landing') {
+      return (
+        <div className="min-h-screen bg-black text-white font-sans selection:bg-emerald-500/30 overflow-x-hidden relative">
+          <nav className="fixed top-0 w-full z-50 bg-black/50 backdrop-blur-xl border-b border-white/5">
+            <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-emerald-500 p-1.5 rounded-lg"><Command className="w-5 h-5 text-black" /></div>
+                <span className="font-bold tracking-wide text-lg">EZTRACT</span>
+              </div>
+              <div className="flex items-center gap-6 text-sm font-medium">
+                <button onClick={() => setCurrentView('login')} className="text-emerald-400 hover:text-emerald-300 transition-colors">Admin Gateway</button>
+                <button onClick={() => { setRole('user'); setCurrentView('dashboard'); }} className="bg-white text-black px-5 py-2.5 rounded-full hover:scale-105 transition-transform font-semibold">
+                  Open Dashboard
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-6 text-sm font-medium">
-              <button onClick={() => setCurrentView('login')} className="text-emerald-400 hover:text-emerald-300 transition-colors">Admin Gateway</button>
-              <button onClick={() => { setRole('user'); setCurrentView('dashboard'); }} className="bg-white text-black px-5 py-2.5 rounded-full hover:scale-105 transition-transform font-semibold">
-                Open Dashboard
+          </nav>
+
+          <section className="relative pt-40 pb-20 px-6 flex flex-col items-center text-center">
+            {/* Background Glow */}
+            <div className="absolute top-40 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.08)_0%,_transparent_50%)] pointer-events-none"></div>
+            
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold tracking-widest uppercase mb-8 text-emerald-400 relative z-10">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Production Prototype V2
+            </div>
+            
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tighter max-w-5xl mb-8 relative z-10">
+              Intelligent spatial <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500">layout digitization.</span>
+            </h1>
+            
+            <p className="text-lg md:text-xl text-neutral-400 max-w-2xl mb-12 font-light leading-relaxed relative z-10">
+              Transform physical blueprints and raw land layouts into interactive, data-rich digital assets. EZTract calculates dimensions, predicts market valuations, and centralizes your registry.
+            </p>
+
+            <div className="flex gap-4 relative z-10 mb-32">
+              <button onClick={() => { setRole('user'); setCurrentView('dashboard'); }} className="px-8 py-4 rounded-full bg-white text-black font-semibold tracking-wide hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2">
+                Launch Platform Workspace <ArrowRight className="w-4 h-4" />
               </button>
             </div>
-          </div>
-        </nav>
 
-        <section className="relative pt-48 pb-32 px-6 flex flex-col items-center text-center">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.05)_0%,_transparent_50%)] pointer-events-none"></div>
-          
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold tracking-widest uppercase mb-8 text-emerald-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Production Prototype V2
-          </div>
-          
-          <h1 className="text-5xl md:text-8xl font-medium tracking-tighter max-w-5xl mb-8">
-            Intelligent spatial <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500">layout digitization.</span>
-          </h1>
-          
-          <p className="text-lg md:text-xl text-neutral-400 max-w-2xl mb-12 font-light leading-relaxed">
-            Transform physical blueprints and raw land layouts into interactive, data-rich digital assets. EZTract calculates dimensions, predicts market valuations, and centralizes your registry.
-          </p>
+            {/* HOW IT WORKS */}
+            <div className="max-w-5xl w-full mx-auto relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative">
+                {/* Connecting Dashed Line (Desktop Only) */}
+                <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-[2px] border-t-2 border-dashed border-white/10 z-0"></div>
 
-          <div className="flex gap-4">
-            <button onClick={() => { setRole('user'); setCurrentView('dashboard'); }} className="px-8 py-4 rounded-full bg-white text-black font-semibold tracking-wide hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2">
-              Launch Platform Workspace <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </section>
-      </div>
-    );
-  }
+                {/* Step 1 */}
+                <div className="relative z-10 flex flex-col items-center text-center bg-black px-6">
+                  <div className="w-24 h-24 bg-neutral-950 border border-white/10 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.05)]">
+                    <Map className="w-10 h-10 text-emerald-500" />
+                  </div>
+                  <div className="text-emerald-500 font-mono font-bold text-sm mb-2">01</div>
+                  <h3 className="text-xl font-medium text-white mb-3">Draw</h3>
+                  <p className="text-neutral-400 text-sm font-light leading-relaxed">Trace the physical boundaries of raw land directly on the interactive satellite layout.</p>
+                </div>
 
-  if (currentView === 'login') {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-4">
-        <div className="bg-neutral-950 border border-white/10 p-12 rounded-[2rem] w-full max-w-md shadow-2xl relative">
-          <button onClick={() => setCurrentView('landing')} className="absolute top-8 right-8 text-neutral-500 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
-          
-          <div className="flex justify-center mb-8"><div className="bg-emerald-500/10 p-4 rounded-full"><Lock className="w-8 h-8 text-emerald-500" /></div></div>
-          <h2 className="text-3xl font-medium text-center text-white mb-2 tracking-tight">Admin Gateway</h2>
-          
-          <form onSubmit={async (e) => {
-            e.preventDefault();
-            const password = e.target.password.value;
-            try {
-              const response = await fetch('/api/admin/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password })
-              });
-              if (response.ok) {
-                setRole('admin');
-                setCurrentView('dashboard');
-              } else {
-                alert('Incorrect Password.');
-              }
-            } catch (error) {
-              alert('Login failed. Please try again.');
-            }
-          }}>
-            <div className="mb-8 relative mt-8">
-              <input 
-                type={showPassword ? "text" : "password"} name="password" required
-                className="w-full bg-black border border-white/10 rounded-2xl p-4 text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all pr-12 font-mono" 
-                placeholder="Passkey" 
-              />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white">
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
+                {/* Step 2 */}
+                <div className="relative z-10 flex flex-col items-center text-center bg-black px-6">
+                  <div className="w-24 h-24 bg-neutral-950 border border-white/10 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.05)]">
+                    <Cpu className="w-10 h-10 text-emerald-500" />
+                  </div>
+                  <div className="text-emerald-500 font-mono font-bold text-sm mb-2">02</div>
+                  <h3 className="text-xl font-medium text-white mb-3">Predict</h3>
+                  <p className="text-neutral-400 text-sm font-light leading-relaxed">The AI engine calculates precise square footage and predicts market valuation.</p>
+                </div>
+
+                {/* Step 3 */}
+                <div className="relative z-10 flex flex-col items-center text-center bg-black px-6">
+                  <div className="w-24 h-24 bg-neutral-950 border border-white/10 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.05)]">
+                    <Database className="w-10 h-10 text-emerald-500" />
+                  </div>
+                  <div className="text-emerald-500 font-mono font-bold text-sm mb-2">03</div>
+                  <h3 className="text-xl font-medium text-white mb-3">Register</h3>
+                  <p className="text-neutral-400 text-sm font-light leading-relaxed">Save exact coordinates and buyer details to the centralized cloud database.</p>
+                </div>
+              </div>
+
+              {/* STATIC METRICS ROW */}
+              <div className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-8 py-10 border-y border-white/5 bg-neutral-900/20 backdrop-blur-sm rounded-3xl">
+                <div className="text-center">
+                  <p className="text-5xl font-light text-white mb-2">36</p>
+                  <p className="text-xs uppercase tracking-widest text-emerald-500/80 font-bold">Plots Digitized</p>
+                </div>
+                <div className="text-center md:border-x border-white/5">
+                  <p className="text-5xl font-light text-white mb-2">₹8.2Cr</p>
+                  <p className="text-xs uppercase tracking-widest text-emerald-500/80 font-bold">Portfolio Tracked</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-5xl font-light text-white mb-2">4</p>
+                  <p className="text-xs uppercase tracking-widest text-emerald-500/80 font-bold">AI Models Active</p>
+                </div>
+              </div>
+
             </div>
-            <button type="submit" className="w-full bg-emerald-500 text-black font-bold py-4 rounded-2xl hover:bg-emerald-400 transition-colors">Access Workspace</button>
-          </form>
+          </section>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
+    if (currentView === 'login') {
+      return (
+        <div className="min-h-screen bg-black flex items-center justify-center p-4">
+          <div className="bg-neutral-950 border border-white/10 p-12 rounded-[2rem] w-full max-w-md shadow-2xl relative">
+            <button onClick={() => setCurrentView('landing')} className="absolute top-8 right-8 text-neutral-500 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
+            
+            <div className="flex justify-center mb-8"><div className="bg-emerald-500/10 p-4 rounded-full"><Lock className="w-8 h-8 text-emerald-500" /></div></div>
+            <h2 className="text-3xl font-medium text-center text-white mb-2 tracking-tight">Admin Gateway</h2>
+            
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const password = e.target.password.value;
+              try {
+                const response = await fetch('/api/admin/login', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ password })
+                });
+                if (response.ok) {
+                  setRole('admin');
+                  setCurrentView('dashboard');
+                  addToast("Successfully authenticated as Admin.", "success");
+                } else {
+                  addToast("Incorrect Passkey. Access Denied.", "error");
+                }
+              } catch (error) {
+                addToast("Login request failed. Check server connection.", "error");
+              }
+            }}>
+              <div className="mb-8 relative mt-8">
+                <input 
+                  type={showPassword ? "text" : "password"} name="password" required
+                  className="w-full bg-black border border-white/10 rounded-2xl p-4 text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all pr-12 font-mono" 
+                  placeholder="Passkey" 
+                />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white">
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              <button type="submit" className="w-full bg-emerald-500 text-black font-bold py-4 rounded-2xl hover:bg-emerald-400 transition-colors">Access Workspace</button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <DashboardLayout role={role} currentView={currentView} onViewChange={setCurrentView} onLogout={() => setCurrentView('landing')}>
+        {currentView === 'dashboard' && <ProjectsDashboard projects={projects} onSelectProject={(p) => { setSelectedProject(p); setCurrentView('map'); }} role={role} />}
+        {currentView === 'map' && selectedProject && <MapEngine role={role} project={selectedProject} onBack={() => setCurrentView('dashboard')} addToast={addToast} />}
+        {currentView === 'insights' && <InsightsDashboard role={role} />}
+      </DashboardLayout>
+    );
+  };
+
+  // RENDER APP WITH GLOBAL TOAST CONTAINER
   return (
-    <DashboardLayout role={role} currentView={currentView} onViewChange={setCurrentView} onLogout={() => setCurrentView('landing')}>
-      {currentView === 'dashboard' && <ProjectsDashboard projects={projects} onSelectProject={(p) => { setSelectedProject(p); setCurrentView('map'); }} role={role} />}
-      {currentView === 'map' && selectedProject && <MapEngine role={role} project={selectedProject} onBack={() => setCurrentView('dashboard')} />}
-      {currentView === 'insights' && <InsightsDashboard role={role} />}
-    </DashboardLayout>
+    <>
+      {renderContent()}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+    </>
   );
 }
 
+// ==========================================
+// DASHBOARD LAYOUT (MOBILE SIDEBAR)
+// ==========================================
 function DashboardLayout({ children, role, currentView, onViewChange, onLogout }) {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const closeSidebar = () => setIsSidebarOpen(false);
+
+  const handleNav = (view) => {
+    onViewChange(view);
+    closeSidebar();
+  };
+
   return (
-    <div className="min-h-screen bg-black text-white flex overflow-hidden font-sans">
-      <aside className="w-64 bg-neutral-950 border-r border-white/5 flex flex-col hidden md:flex">
-        <div className="h-20 flex items-center px-8 border-b border-white/5">
-          <Command className="w-6 h-6 text-emerald-500 mr-3" />
-          <span className="font-bold tracking-widest text-lg">EZTRACT</span>
+    <div className="min-h-screen bg-black text-white flex overflow-hidden font-sans relative">
+      
+      {/* MOBILE BACKDROP */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-300"
+          onClick={closeSidebar}
+        ></div>
+      )}
+
+      {/* SIDEBAR */}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-neutral-950 border-r border-white/5 flex flex-col transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="h-20 flex items-center px-8 border-b border-white/5 justify-between md:justify-start">
+          <div className="flex items-center">
+            <Command className="w-6 h-6 text-emerald-500 mr-3" />
+            <span className="font-bold tracking-widest text-lg">EZTRACT</span>
+          </div>
+          <button onClick={closeSidebar} className="md:hidden text-neutral-500 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
         </div>
         <div className="p-6 flex-1 space-y-2">
           <p className="text-xs font-bold text-neutral-600 uppercase tracking-widest mb-4 ml-2">Menu</p>
           
-          <button onClick={() => onViewChange('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium border transition-colors ${currentView === 'dashboard' || currentView === 'map' ? 'bg-neutral-900 text-white border-white/5' : 'text-neutral-500 hover:text-white hover:bg-neutral-900/50 border-transparent'}`}>
+          <button onClick={() => handleNav('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium border transition-colors ${currentView === 'dashboard' || currentView === 'map' ? 'bg-neutral-900 text-white border-white/5' : 'text-neutral-500 hover:text-white hover:bg-neutral-900/50 border-transparent'}`}>
             <LayoutDashboard className="w-5 h-5" /> Projects Layout
           </button>
           
-          <button onClick={() => onViewChange('insights')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium border transition-colors ${currentView === 'insights' ? 'bg-neutral-900 text-white border-white/5' : 'text-neutral-500 hover:text-white hover:bg-neutral-900/50 border-transparent'}`}>
+          <button onClick={() => handleNav('insights')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium border transition-colors ${currentView === 'insights' ? 'bg-neutral-900 text-white border-white/5' : 'text-neutral-500 hover:text-white hover:bg-neutral-900/50 border-transparent'}`}>
             <Cpu className="w-5 h-5" /> AI Revenue Insights
           </button>
 
         </div>
         <div className="p-6 border-t border-white/5">
           <div className="flex items-center gap-3 mb-6 px-2">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 font-bold border border-emerald-500/30">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 font-bold border border-emerald-500/30 shrink-0">
               {role === 'admin' ? 'A' : 'G'}
             </div>
-            <div>
-              <p className="text-sm font-medium text-white">{role === 'admin' ? 'Administrator' : 'Guest Viewer'}</p>
+            <div className="truncate">
+              <p className="text-sm font-medium text-white truncate">{role === 'admin' ? 'Administrator' : 'Guest Viewer'}</p>
             </div>
           </div>
           <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-white bg-neutral-900 hover:bg-neutral-800 py-3 rounded-xl transition-colors font-medium border border-white/5">
@@ -152,7 +290,22 @@ function DashboardLayout({ children, role, currentView, onViewChange, onLogout }
           </button>
         </div>
       </aside>
-      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#050505]">
+
+      {/* MAIN CONTENT AREA */}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#050505] relative">
+        
+        {/* MOBILE HEADER (ONLY VISIBLE ON SMALL SCREENS) */}
+        <div className="md:hidden flex items-center p-4 border-b border-white/5 bg-neutral-950 shrink-0 gap-3 relative z-30">
+          <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition-colors">
+            <Menu className="w-6 h-6" />
+          </button>
+          <div className="flex items-center gap-2">
+            <Command className="w-5 h-5 text-emerald-500" />
+            <span className="font-bold tracking-widest text-base">EZTRACT</span>
+          </div>
+        </div>
+
+        {/* PAGE CONTENT */}
         {children}
       </main>
     </div>
@@ -161,19 +314,19 @@ function DashboardLayout({ children, role, currentView, onViewChange, onLogout }
 
 function ProjectsDashboard({ projects, onSelectProject, role }) {
   return (
-    <div className="p-8 max-w-7xl mx-auto w-full animate-in fade-in duration-500 overflow-y-auto">
-      <div className="flex justify-between items-end mb-10">
+    <div className="p-8 max-w-7xl mx-auto w-full animate-in fade-in duration-500 overflow-y-auto custom-scrollbar h-full">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-4">
         <div>
           <h1 className="text-3xl font-medium text-white tracking-tight mb-2">Projects Overview</h1>
           <p className="text-neutral-400">Manage your digitized layouts and real estate developments.</p>
         </div>
         {role === 'admin' && (
-          <button className="bg-white text-black px-5 py-2.5 rounded-xl font-medium hover:bg-neutral-200 transition-colors flex items-center gap-2">
+          <button className="bg-white text-black px-5 py-2.5 rounded-xl font-medium hover:bg-neutral-200 transition-colors flex items-center gap-2 shrink-0">
             <PlusCircle className="w-5 h-5" /> New Layout Project
           </button>
         )}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-12">
         {projects.map(proj => (
           <div key={proj.id} className="bg-neutral-900 border border-white/5 rounded-3xl overflow-hidden hover:border-emerald-500/30 transition-all group cursor-pointer"
             onClick={() => onSelectProject(proj)}>
@@ -529,9 +682,9 @@ function InsightsDashboard({ role }) {
 }
 
 // ==========================================
-// MAP ENGINE COMPONENT (From Phase 1 - Fully Restored)
+// MAP ENGINE COMPONENT
 // ==========================================
-function MapEngine({ role, project, onBack }) {
+function MapEngine({ role, project, onBack, addToast }) {
   const [plots, setPlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false); 
@@ -541,6 +694,15 @@ function MapEngine({ role, project, onBack }) {
   const [predictionResult, setPredictionResult] = useState(null);
   const [formData, setFormData] = useState({ plot_number: '', buyer_name: '', contact_number: '', managed_by: '', status: 'Available' });
   const [isSaving, setIsSaving] = useState(false);
+
+  // SEARCH AND FILTER STATE
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+
+  // PLOT STATUS EDIT STATE (PROMPT 7)
+  const [isEditingStatus, setIsEditingStatus] = useState(false);
+  const [editStatusValue, setEditStatusValue] = useState("");
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -566,21 +728,45 @@ function MapEngine({ role, project, onBack }) {
   };
 
   const handleSavePlot = async () => {
-    if (!formData.plot_number) return alert("Plot Number is required!");
+    if (!formData.plot_number) return addToast("Plot Number is required!", "error");
+    
     setIsSaving(true);
     const x = drawnShapeData.x; const y = drawnShapeData.y;
     const w = Math.abs(drawnShapeData.width); const h = Math.abs(drawnShapeData.height);
     const polygonString = `[[${x},${y}], [${x+w},${y}], [${x+w},${y+h}], [${x},${y+h}]]`;
+    
     const finalPayload = {
       plot_number: formData.plot_number, width_ft: predictionResult.width_ft, length_ft: predictionResult.length_ft,
       total_area_sqft: predictionResult.total_area_sqft, base_price: predictionResult.predicted_price,
       status: formData.status, buyer_name: formData.buyer_name || null, contact_number: formData.contact_number || null,
       managed_by: formData.managed_by || null, polygon_coordinates: polygonString
     };
+    
     const res = await savePlotToDB(finalPayload);
-    if (res) { await loadData(); handleCloseModal(); } 
-    else { alert("Failed to save. Check terminal."); }
+    
+    if (res) { 
+      await loadData(); 
+      handleCloseModal(); 
+      addToast(`Plot ${formData.plot_number} successfully registered!`, "success");
+    } 
+    else { 
+      addToast("Failed to save plot. Please check server connection.", "error"); 
+    }
     setIsSaving(false);
+  };
+
+  const handleUpdateStatus = async () => {
+    setIsUpdatingStatus(true);
+    const res = await updatePlotStatus(viewPlot.id, editStatusValue);
+    if (res) {
+      addToast(`Plot ${viewPlot.plot_number} status updated to ${editStatusValue}`, "success");
+      setViewPlot({ ...viewPlot, status: editStatusValue });
+      setIsEditingStatus(false);
+      loadData(); 
+    } else {
+      addToast("Failed to update plot status.", "error");
+    }
+    setIsUpdatingStatus(false);
   };
 
   const handleCloseModal = () => {
@@ -588,63 +774,197 @@ function MapEngine({ role, project, onBack }) {
     setFormData({ plot_number: '', buyer_name: '', contact_number: '', managed_by: '', status: 'Available' });
   };
 
+  // CALCULATE STATS
+  const totalPlots = plots.length;
+  const availablePlots = plots.filter(p => p.status === 'Available').length;
+  const bookedPlots = plots.filter(p => p.status === 'Booked').length;
+  const soldPlots = plots.filter(p => p.status === 'Sold').length;
+  const totalValueLakhs = (plots.reduce((sum, p) => sum + (p.base_price || 0), 0) / 100000).toFixed(2);
+
+  // APPLY SEARCH AND FILTER
+  const filteredPlots = plots.filter(plot => {
+    const matchesSearch = plot.plot_number.toString().toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "All" || plot.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   return (
-    <div className="flex-1 flex gap-6 overflow-hidden">
-      <div className="flex-[3] relative h-full flex flex-col pt-6 pl-6 pb-6">
-         <div className="flex items-center gap-4 mb-4">
-           <button onClick={onBack} className="text-neutral-500 hover:text-white transition-colors bg-neutral-900 p-2 rounded-lg border border-white/5">
-             <ArrowRight className="w-5 h-5 rotate-180" />
-           </button>
-           <div>
-             <h2 className="text-2xl font-medium text-white tracking-tight">{project.name}</h2>
-             <p className="text-neutral-500 text-xs uppercase tracking-widest mt-1">Layout Mapping Interface</p>
-           </div>
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
+      
+      {/* STATS BAR */}
+      <div className="shrink-0 pt-6 px-6 animate-in fade-in slide-in-from-top-4 duration-500 hidden md:block">
+         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            
+            <div className="bg-neutral-900/40 border border-white/5 rounded-xl p-4 flex flex-col border-l-4 border-l-white/20">
+               <span className="text-xs text-neutral-500 uppercase tracking-widest font-semibold">Total Plots</span>
+               <span className="text-2xl font-light text-white mt-1">{totalPlots}</span>
+            </div>
+
+            <div className="bg-neutral-900/40 border border-white/5 rounded-xl p-4 flex flex-col border-l-4 border-l-green-500">
+               <span className="text-xs text-neutral-500 uppercase tracking-widest font-semibold flex items-center gap-2">
+                 <div className="w-2 h-2 rounded-full bg-green-500"></div> Available
+               </span>
+               <span className="text-2xl font-light text-white mt-1">{availablePlots}</span>
+            </div>
+
+            <div className="bg-neutral-900/40 border border-white/5 rounded-xl p-4 flex flex-col border-l-4 border-l-amber-500">
+               <span className="text-xs text-neutral-500 uppercase tracking-widest font-semibold flex items-center gap-2">
+                 <div className="w-2 h-2 rounded-full bg-amber-500"></div> Booked
+               </span>
+               <span className="text-2xl font-light text-white mt-1">{bookedPlots}</span>
+            </div>
+
+            <div className="bg-neutral-900/40 border border-white/5 rounded-xl p-4 flex flex-col border-l-4 border-l-neutral-600">
+               <span className="text-xs text-neutral-500 uppercase tracking-widest font-semibold flex items-center gap-2">
+                 <div className="w-2 h-2 rounded-full bg-neutral-600"></div> Sold
+               </span>
+               <span className="text-2xl font-light text-white mt-1">{soldPlots}</span>
+            </div>
+
+            <div className="bg-neutral-900/40 border border-white/5 rounded-xl p-4 flex flex-col border-l-4 border-l-emerald-500">
+               <span className="text-xs text-neutral-500 uppercase tracking-widest font-semibold">Portfolio Value</span>
+               <span className="text-2xl font-light text-white mt-1">₹{totalValueLakhs}<span className="text-sm text-neutral-500 ml-1">Lakhs</span></span>
+            </div>
+
          </div>
-         <PlotCanvas existingPlots={plots} onPlotDrawn={handlePlotDrawn} onPlotClick={setViewPlot} role={role} />
       </div>
 
-      <div className="flex-[1] bg-neutral-900 border border-white/5 rounded-3xl p-6 flex flex-col h-[calc(100%-3rem)] shadow-2xl mt-6 mr-6">
-        <div className="mb-6 pb-6 border-b border-white/5">
-           <h2 className="text-xl font-medium tracking-tight mb-2">Registry Database</h2>
-           <div className="flex items-center justify-between text-neutral-500 text-sm">
-             <span>{plots.length} Mapped</span>
-             <Search className="w-4 h-4" />
+      {/* MAIN CONTENT */}
+      <div className="flex-1 flex flex-col lg:flex-row gap-6 overflow-hidden p-6">
+        <div className="flex-[3] relative h-[50vh] lg:h-full flex flex-col shrink-0 lg:shrink">
+           <div className="flex items-center gap-4 mb-4">
+             <button onClick={onBack} className="text-neutral-500 hover:text-white transition-colors bg-neutral-900 p-2 rounded-lg border border-white/5">
+               <ArrowRight className="w-5 h-5 rotate-180" />
+             </button>
+             <div>
+               <h2 className="text-2xl font-medium text-white tracking-tight">{project.name}</h2>
+               <p className="text-neutral-500 text-xs uppercase tracking-widest mt-1">Layout Mapping Interface</p>
+             </div>
            </div>
+           <PlotCanvas existingPlots={plots} onPlotDrawn={handlePlotDrawn} onPlotClick={setViewPlot} role={role} />
         </div>
-        {loading ? ( <div className="flex-1 flex justify-center items-center"><Loader2 className="animate-spin w-6 h-6 text-emerald-500" /></div> ) : (
-          <div className="space-y-3 overflow-y-auto pr-2 pb-10 custom-scrollbar">
-            {plots.map((plot) => (
-              <div key={plot.id} onClick={() => setViewPlot(plot)} className="bg-black/50 border border-white/5 rounded-2xl p-4 hover:bg-neutral-800 cursor-pointer transition-colors">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium tracking-wide text-sm">Plot {plot.plot_number}</span>
-                  <div className={`w-2.5 h-2.5 rounded-full ${plot.status === 'Available' ? 'bg-green-500' : plot.status === 'Sold' ? 'bg-neutral-600' : 'bg-amber-500'}`}></div>
-                </div>
-                <div className="text-xs text-neutral-500 flex justify-between font-mono">
-                  <span>{plot.total_area_sqft} sf</span>
-                  <span className="text-emerald-500/70">₹{plot.base_price.toLocaleString('en-IN')}</span>
-                </div>
-              </div>
-            ))}
+
+        <div className="flex-[1] bg-neutral-900 border border-white/5 rounded-3xl p-6 flex flex-col h-[400px] lg:h-full shadow-2xl shrink-0 lg:shrink mt-6 lg:mt-0">
+          
+          {/* SEARCH AND FILTER HEADER */}
+          <div className="mb-6 pb-6 border-b border-white/5 space-y-4 shrink-0">
+             <div>
+               <h2 className="text-xl font-medium tracking-tight mb-2">Registry Database</h2>
+               <p className="text-xs text-neutral-500">Showing {filteredPlots.length} of {plots.length} plots</p>
+             </div>
+             <div className="flex gap-2">
+               <div className="flex-1 relative">
+                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+                 <input 
+                   type="text" 
+                   placeholder="Search plot #" 
+                   value={searchTerm}
+                   onChange={(e) => setSearchTerm(e.target.value)}
+                   className="w-full bg-black border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:border-emerald-500 outline-none transition-colors"
+                 />
+               </div>
+               <select 
+                 value={statusFilter}
+                 onChange={(e) => setStatusFilter(e.target.value)}
+                 className="bg-black border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none appearance-none cursor-pointer"
+               >
+                 <option value="All">All</option>
+                 <option value="Available">Available</option>
+                 <option value="Booked">Booked</option>
+                 <option value="Sold">Sold</option>
+               </select>
+             </div>
           </div>
-        )}
+
+          {/* SKELETON LOADERS */}
+          {loading ? ( 
+            <div className="space-y-3 overflow-y-auto pr-2 pb-10 custom-scrollbar flex-1">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-black/50 border border-white/5 rounded-2xl p-4 animate-pulse">
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="h-5 w-20 bg-neutral-800 rounded"></div>
+                    <div className="w-2.5 h-2.5 rounded-full bg-neutral-800"></div>
+                  </div>
+                  <div className="text-xs text-neutral-500 flex justify-between font-mono mt-3">
+                    <div className="h-4 w-12 bg-neutral-800 rounded"></div>
+                    <div className="h-4 w-20 bg-neutral-800 rounded"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3 overflow-y-auto pr-2 pb-10 custom-scrollbar flex-1">
+              {filteredPlots.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-sm text-neutral-500">No plots match your criteria.</p>
+                </div>
+              ) : (
+                filteredPlots.map((plot) => (
+                  <div key={plot.id} onClick={() => setViewPlot(plot)} className="bg-black/50 border border-white/5 rounded-2xl p-4 hover:bg-neutral-800 cursor-pointer transition-colors">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-medium tracking-wide text-sm">Plot {plot.plot_number}</span>
+                      <div className={`w-2.5 h-2.5 rounded-full ${plot.status === 'Available' ? 'bg-green-500' : plot.status === 'Sold' ? 'bg-neutral-600' : 'bg-amber-500'}`}></div>
+                    </div>
+                    <div className="text-xs text-neutral-500 flex justify-between font-mono">
+                      <span>{plot.total_area_sqft} sf</span>
+                      <span className="text-emerald-500/70">₹{plot.base_price.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* VIEW PLOT MODAL */}
+      {/* VIEW PLOT MODAL WITH EDIT STATUS */}
       {viewPlot && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
            <div className="bg-neutral-950 border border-white/10 p-8 rounded-[2rem] w-full max-w-lg shadow-2xl relative animate-in zoom-in-95 duration-300">
-              <button onClick={() => setViewPlot(null)} className="absolute top-6 right-6 text-neutral-500 hover:text-white bg-white/5 p-2 rounded-full transition-colors">
+              <button onClick={() => { setViewPlot(null); setIsEditingStatus(false); }} className="absolute top-6 right-6 text-neutral-500 hover:text-white bg-white/5 p-2 rounded-full transition-colors">
                 <X className="w-5 h-5" />
               </button>
               
-              <div className="mb-8 text-center mt-2">
-                <span className={`inline-block px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest mb-6 border ${
-                  viewPlot.status === 'Available' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
-                  viewPlot.status === 'Sold' ? 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20' : 
-                  'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                }`}>
-                  {viewPlot.status}
-                </span>
+              <div className="flex flex-col items-center mb-8 mt-2">
+                {!isEditingStatus ? (
+                  <div className="flex items-center gap-3 mb-6">
+                    <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
+                      viewPlot.status === 'Available' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
+                      viewPlot.status === 'Sold' ? 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20' : 
+                      'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        viewPlot.status === 'Available' ? 'bg-green-500 animate-pulse' : 
+                        viewPlot.status === 'Sold' ? 'bg-neutral-400' : 'bg-amber-500'
+                      }`}></span>
+                      {viewPlot.status}
+                    </span>
+                    {role === 'admin' && (
+                      <button onClick={() => { setIsEditingStatus(true); setEditStatusValue(viewPlot.status); }} className="text-[10px] uppercase tracking-widest font-bold text-neutral-500 hover:text-white transition-colors border border-white/10 px-3 py-1.5 rounded-full hover:bg-white/5">
+                        Edit Status
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 mb-6 animate-in fade-in zoom-in-95 duration-200">
+                    <select 
+                      value={editStatusValue} 
+                      onChange={e => setEditStatusValue(e.target.value)}
+                      className="bg-black border border-white/10 rounded-full px-4 py-1.5 text-xs text-white focus:border-emerald-500 outline-none appearance-none cursor-pointer uppercase tracking-widest font-bold"
+                    >
+                      <option value="Available">Available</option>
+                      <option value="Booked">Booked</option>
+                      <option value="Sold">Sold</option>
+                    </select>
+                    <button onClick={handleUpdateStatus} disabled={isUpdatingStatus} className="bg-emerald-500 text-black px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest font-bold hover:bg-emerald-400 transition-colors flex items-center gap-2">
+                      {isUpdatingStatus ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+                    </button>
+                    <button onClick={() => setIsEditingStatus(false)} disabled={isUpdatingStatus} className="text-neutral-500 hover:text-white transition-colors p-1.5 bg-white/5 rounded-full">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+                
                 <h2 className="text-5xl font-medium text-white tracking-tighter">Plot {viewPlot.plot_number}</h2>
               </div>
 
