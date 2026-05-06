@@ -53,3 +53,14 @@ export const fetchCompletionForecast = async () => {
     return null;
   }
 };
+
+export const fetchSmartBundling = async () => {
+  try {
+    const response = await fetch(`http://localhost:8000/api/insights/smart-bundling`);
+    if (!response.ok) throw new Error("Bundling failed");
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching bundling insight:", error);
+    return null;
+  }
+};
