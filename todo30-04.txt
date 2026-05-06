@@ -1,18 +1,147 @@
-=======================================================
-EZTRACT AI PROTOTYPE - DEVELOPMENT ROADMAP
-=======================================================
+═══════════════════════════════════════════════════════════════
+                    EZTRACT — ENTERPRISE UPGRADE
+                    Perfect Implementation Roadmap
+═══════════════════════════════════════════════════════════════
 
-[x] PHASE 1: CORE ARCHITECTURE & DATA SANITIZATION (COMPLETED)
-[x] PHASE 2: FRONTEND "AI INSIGHTS" UI (COMPLETED)
-    - Built responsive, empty-state UI for 4 AI models.
 
-[~] PHASE 3: FASTAPI INTELLIGENCE ENGINE (IN PROGRESS)
-    [x] 1. Optimal Pricing Window (Statistical market velocity model)
-    [x] 2. Layout Completion Forecasting (Linear regression sell-out projection)
-    [ ] 3. Smart Plot Bundling (TOMORROW - Spatial adjacency math)
-    [ ] 4. Buyer Profile Matcher (TOMORROW - Generative persona matching)
+──────────────────────────────────────────────────────────────
+  PRE-STEP — Foundation Cleanup
+  Do this first. Everything else depends on it.
+──────────────────────────────────────────────────────────────
 
-NOTES FOR TOMORROW:
-- Start by pulling the merged Phase 3 code into the local `main` branch.
-- Focus entirely on `backend/app/main.py` for Features 3 & 4.
-=======================================================
+  [ ] Create .env.example documenting every required env var
+  [ ] Move admin passkey from hardcoded string →
+        ADMIN_SECRET env var in backend
+  [ ] Move API URL →
+        NEXT_PUBLIC_API_URL in frontend .env.local
+  [ ] Move pixel-to-feet ratio (0.5) →
+        configurable constant in backend config
+  [ ] Add /api/admin/login FastAPI endpoint that
+        validates against ADMIN_SECRET env var
+  [ ] Add protected route middleware in Next.js —
+        unauthenticated users redirect away from /dashboard
+
+
+──────────────────────────────────────────────────────────────
+  PILLAR 1 — Auth & Security
+  Lock the platform down before exposing it to the internet.
+──────────────────────────────────────────────────────────────
+
+  [ ] Implement Supabase Auth (email/password login)
+  [ ] Replace hardcoded passkey flow with Supabase Auth session
+  [ ] JWT token handling —
+        frontend sends token, FastAPI validates it
+  [ ] RBAC setup — Admin role vs Agent role vs Guest
+  [ ] Enable Row Level Security (RLS) in Supabase on plots table
+  [ ] Test:
+        - Guest cannot write
+        - Agent cannot access AI insights
+        - Admin has full access
+
+
+──────────────────────────────────────────────────────────────
+  PILLAR 2 — Containerization
+  Standardize the environment before deploying anything.
+──────────────────────────────────────────────────────────────
+
+  [ ] Write Dockerfile for FastAPI backend
+        (Python 3.12 slim base)
+  [ ] Write Dockerfile for Next.js frontend
+        (node:20-alpine base)
+  [ ] Write docker-compose.yml —
+        frontend + backend + redis as one stack
+  [ ] Add Redis service to docker-compose
+  [ ] Write .dockerignore for both services
+        (exclude myvenv, node_modules, .next)
+  [ ] Test: docker-compose up brings entire stack
+        with zero manual steps
+
+
+──────────────────────────────────────────────────────────────
+  PILLAR 3 — Cloud Deployment
+  Get it live before adding more complexity.
+──────────────────────────────────────────────────────────────
+
+  [ ] Deploy backend → Render (Docker-based deployment)
+  [ ] Set all backend env vars in Render dashboard
+  [ ] Deploy frontend → Vercel
+  [ ] Set NEXT_PUBLIC_API_URL in Vercel →
+        point to live Render backend URL
+  [ ] Update Next.js rewrite proxy to use env var
+        instead of hardcoded localhost
+  [ ] Add deploy jobs to .github/workflows/ci.yml —
+        auto-deploy on push to main after all checks pass
+  [ ] Test: full end-to-end flow works on the live URL
+
+
+──────────────────────────────────────────────────────────────
+  PILLAR 4 — Redis Caching
+  Add performance on top of a stable deployed base.
+──────────────────────────────────────────────────────────────
+
+  [ ] Connect FastAPI to Redis
+        (Render managed Redis or Upstash free tier)
+  [ ] Cache Optimal Pricing Window per plot number
+        (TTL: 5 minutes)
+  [ ] Cache Completion Forecast result
+        (TTL: 10 minutes, layout-wide)
+  [ ] Cache Smart Bundling result
+        (TTL: 10 minutes)
+  [ ] Invalidate plot-specific cache when
+        that plot's status is updated
+  [ ] Add graceful fallback —
+        if Redis is down, compute fresh and continue
+  [ ] Add cache hit/miss indicator to API response
+        for debugging
+
+
+──────────────────────────────────────────────────────────────
+  PILLAR 5 — Real GenAI Integration
+  The crown feature, built on top of everything solid below it.
+──────────────────────────────────────────────────────────────
+
+  [ ] Add GEMINI_API_KEY to backend env vars
+        (Gemini is free tier friendly)
+  [ ] Swap Buyer Persona heuristic engine → Gemini API call
+  [ ] Design structured prompt:
+        send plot dimensions, area, price, location,
+        and layout context to the LLM
+  [ ] Parse LLM response into existing persona JSON schema
+        so frontend needs zero changes
+  [ ] Add Redis caching for LLM responses per plot
+        (TTL: 30 minutes)
+  [ ] Add graceful fallback →
+        if Gemini API fails, return heuristic result
+  [ ] Test: Buyer Persona generates genuinely dynamic,
+        unique pitches per plot
+
+
+═══════════════════════════════════════════════════════════════
+                      SEQUENCE SUMMARY
+═══════════════════════════════════════════════════════════════
+
+  Pre-Step        →  fixes the foundation
+       ↓
+  Auth & Security →  locks the platform
+       ↓
+  Docker          →  standardizes the environment
+       ↓
+  Deploy          →  gets it live on a real URL
+       ↓
+  Redis           →  makes it fast
+       ↓
+  GenAI           →  makes it intelligent
+
+
+═══════════════════════════════════════════════════════════════
+                      SUGGESTED DAY PLAN
+═══════════════════════════════════════════════════════════════
+
+  Day 1  →  Pre-Step + Pillar 1 (Auth & Security)
+  Day 2  →  Pillar 2 (Docker) + Pillar 3 (Deploy)
+  Day 3  →  Pillar 4 (Redis) + Pillar 5 (GenAI)
+
+
+═══════════════════════════════════════════════════════════════
+                    END OF ROADMAP — EZTRACT
+═══════════════════════════════════════════════════════════════
