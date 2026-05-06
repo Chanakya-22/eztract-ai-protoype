@@ -75,3 +75,18 @@ export const fetchBuyerPersona = async (plotNumber) => {
     return null;
   }
 };
+
+export const updatePlotStatus = async (plotId, status) => {
+  try {
+    const response = await fetch(`http://localhost:8000/api/plots/${plotId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    if (!response.ok) throw new Error("Failed to update status");
+    return await response.json();
+  } catch (error) {
+    console.error("Error updating plot status:", error);
+    return null;
+  }
+};
