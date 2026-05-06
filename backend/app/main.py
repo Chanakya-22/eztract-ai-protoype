@@ -5,6 +5,8 @@ import math
 from . import models, schemas, database
 from .database import engine
 from datetime import datetime, timedelta
+import json
+import itertools
 
 # Initialize the FastAPI app
 app = FastAPI(title="EZTract AI Prototype API")
@@ -219,4 +221,69 @@ def get_completion_forecast(db: Session = Depends(database.get_db)):
         "current_velocity": round(velocity, 1),
         "available_plots": available,
         "ai_suggestion": suggestion
+    }    
+
+@app.get("/api/insights/smart-bundling", response_model=schemas.SmartBundlingInsight)
+def get_smart_bundling(db: Session = Depends(database.get_db)):
+    # 1. Fetch all plots, then filter for Available in Python to bypass strict Postgres Enum typing
+    all_plots = db.query(models.Plot).filter(models.Plot.total_area_sqft > 0).all()
+    available_plots = [p for p in all_plots if p.status and p.status.value == "Available"]
+    
+    if len(available_plots) < 2:
+        return {
+            "bundles": [],
+            "insight_message": "Not enough available plots to generate adjacent bundles."
+        }
+
+    # Helper function to find the center (centroid) of a plot based on its saved coordinates
+    def get_centroid(coord_str):
+        try:
+            coords = json.loads(coord_str)
+            cx = sum(p[0] for p in coords) / len(coords)
+            cy = sum(p[1] for p in coords) / len(coords)
+            return cx, cy
+        except:
+            return 0, 0
+
+    bundles = []
+    
+    # 2. Iterate through every possible pair of available plots
+    for plot1, plot2 in itertools.combinations(available_plots, 2):
+        if not plot1.polygon_coordinates or not plot2.polygon_coordinates:
+            continue
+            
+        c1x, c1y = get_centroid(plot1.polygon_coordinates)
+        c2x, c2y = get_centroid(plot2.polygon_coordinates)
+        
+        # Calculate spatial distance between centers using Pythagorean theorem
+        distance = math.hypot(c1x - c2x, c1y - c2y)
+        
+        # If the centers are close enough (threshold of ~120 coordinate pixels), they are adjacent
+        if distance < 120:
+            total_area = plot1.total_area_sqft + plot2.total_area_sqft
+            # Apply a 5% bulk discount to the bundled price to incentivize high-net-worth buyers
+            bundled_price = (plot1.base_price + plot2.base_price) * 0.95 
+            
+            viability = "Highly Viable" if total_area > 3000 else "Standard Merge"
+            
+            bundles.append({
+                "bundle_name": f"Plot {plot1.plot_number} + Plot {plot2.plot_number}",
+                "total_area": total_area,
+                "bundled_price": bundled_price,
+                "viability": viability
+            })
+
+    # Sort the bundles by highest price to pitch the most lucrative deals first
+    bundles.sort(key=lambda x: x["bundled_price"], reverse=True)
+    top_bundles = bundles[:3] # Keep only the top 3 best bundles
+
+    insight_message = (
+        f"Spatial analysis identified {len(bundles)} adjacent plot clusters. "
+        f"Bundling these specific units with a 5% bulk discount targets high-ticket commercial "
+        f"or premium residential buyers, reducing your total transaction overhead."
+    )
+
+    return {
+        "bundles": top_bundles,
+        "insight_message": insight_message
     }    

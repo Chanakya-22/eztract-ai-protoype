@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { fetchPlots, predictPlotPrice, savePlotToDB, fetchPricingInsight, fetchCompletionForecast } from '../services/api';
+import { fetchPlots, predictPlotPrice, savePlotToDB, fetchPricingInsight, fetchCompletionForecast, fetchSmartBundling } from '../services/api';
 import { 
   Loader2, PlusCircle, CheckCircle, X, User, Phone, ShieldCheck, ArrowRight, Lock, 
   Eye, EyeOff, Command, Layers, Cpu, Database, Map, LayoutDashboard, Settings, LogOut, 
-  FileText, Search, TrendingUp, Clock, Users, Link, Info, TrendingDown
+  FileText, Search, TrendingUp, Clock, Users, Link, Info, TrendingDown, RotateCcw
 } from 'lucide-react';
 
 const PlotCanvas = dynamic(() => import('../components/PlotCanvas'), { ssr: false });
@@ -194,9 +194,6 @@ function ProjectsDashboard({ projects, onSelectProject, role }) {
   );
 }
 
-// ==========================================
-// PHASE 2 & 3: AI REVENUE INSIGHTS DASHBOARD
-// ==========================================
 function InsightsDashboard({ role }) {
   // Feature 1 State
   const [pricingInsight, setPricingInsight] = useState(null);
@@ -206,6 +203,10 @@ function InsightsDashboard({ role }) {
   // Feature 2 State
   const [forecastInsight, setForecastInsight] = useState(null);
   const [loadingForecast, setLoadingForecast] = useState(false);
+
+  // Feature 3 State
+  const [bundlingInsight, setBundlingInsight] = useState(null);
+  const [loadingBundling, setLoadingBundling] = useState(false);
 
   const handleRunPricing = async () => {
     if (!targetPlot) return;
@@ -220,6 +221,13 @@ function InsightsDashboard({ role }) {
     const data = await fetchCompletionForecast();
     setForecastInsight(data);
     setLoadingForecast(false);
+  };
+
+  const handleRunBundling = async () => {
+    setLoadingBundling(true);
+    const data = await fetchSmartBundling();
+    setBundlingInsight(data);
+    setLoadingBundling(false);
   };
 
   return (
@@ -245,15 +253,22 @@ function InsightsDashboard({ role }) {
           
           <div className="flex justify-between items-center mb-6 relative z-10">
             <h3 className="text-lg font-medium text-white flex items-center gap-2"><TrendingUp className="w-5 h-5 text-emerald-400" /> Optimal Pricing Window</h3>
-            <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg pr-1 overflow-hidden focus-within:border-emerald-500 transition-colors">
-               <span className="text-xs text-neutral-500 pl-3 uppercase tracking-widest font-semibold">Plot</span>
-               <input 
-                 type="text" 
-                 value={targetPlot} 
-                 onChange={(e) => setTargetPlot(e.target.value)} 
-                 className="bg-transparent py-1.5 w-12 text-white text-sm outline-none text-center font-mono" 
-                 placeholder="#" 
-               />
+            <div className="flex items-center gap-3">
+               {pricingInsight && (
+                  <button onClick={() => setPricingInsight(null)} className="text-neutral-500 hover:text-white transition-colors" title="Clear Model">
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+               )}
+               <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg pr-1 overflow-hidden focus-within:border-emerald-500 transition-colors">
+                 <span className="text-xs text-neutral-500 pl-3 uppercase tracking-widest font-semibold">Plot</span>
+                 <input 
+                   type="text" 
+                   value={targetPlot} 
+                   onChange={(e) => setTargetPlot(e.target.value)} 
+                   className="bg-transparent py-1.5 w-12 text-white text-sm outline-none text-center font-mono" 
+                   placeholder="#" 
+                 />
+               </div>
             </div>
           </div>
 
@@ -314,10 +329,18 @@ function InsightsDashboard({ role }) {
           )}
         </div>
 
-        {/* Feature 2: Completion Forecasting (NOW DYNAMIC) */}
+        {/* Feature 2: Completion Forecasting */}
         <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-8 relative overflow-hidden flex flex-col">
           <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none"><Clock className="w-32 h-32" /></div>
-          <h3 className="text-lg font-medium text-white mb-6 flex items-center gap-2 relative z-10"><Clock className="w-5 h-5 text-blue-400" /> Completion Forecasting</h3>
+          
+          <div className="flex justify-between items-center mb-6 relative z-10">
+             <h3 className="text-lg font-medium text-white flex items-center gap-2"><Clock className="w-5 h-5 text-blue-400" /> Completion Forecasting</h3>
+             {forecastInsight && (
+                <button onClick={() => setForecastInsight(null)} className="text-neutral-500 hover:text-white transition-colors" title="Clear Model">
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+             )}
+          </div>
           
           <div className="flex-1 relative z-10 mb-6 flex flex-col justify-center">
             {loadingForecast ? (
@@ -361,39 +384,67 @@ function InsightsDashboard({ role }) {
           )}
         </div>
 
-        {/* Feature 3: Smart Plot Bundling (PLACEHOLDER WITH INFO) */}
+        {/* Feature 3: Smart Plot Bundling */}
         <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-8 relative overflow-hidden flex flex-col">
-          <h3 className="text-lg font-medium text-white mb-6 flex items-center gap-2"><Link className="w-5 h-5 text-purple-400" /> Smart Plot Bundling</h3>
+          <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none"><Link className="w-32 h-32" /></div>
           
-          <div className="bg-black/50 p-5 rounded-2xl border border-white/5 mb-6 flex gap-3 items-start relative z-10">
-              <Info className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-              <p className="text-xs text-neutral-400 font-light leading-relaxed">
-                  <strong className="text-neutral-200 font-medium">Model Architecture: </strong> 
-                  A spatial analysis script that scans geometric coordinates to identify adjacent 'Available' plots, automatically clustering them to suggest high-ticket bundles for premium buyers.
-              </p>
+          <div className="flex justify-between items-center mb-6 relative z-10">
+            <h3 className="text-lg font-medium text-white flex items-center gap-2"><Link className="w-5 h-5 text-purple-400" /> Smart Plot Bundling</h3>
+            {bundlingInsight && (
+                <button onClick={() => setBundlingInsight(null)} className="text-neutral-500 hover:text-white transition-colors" title="Clear Model">
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+            )}
           </div>
 
-          <div className="space-y-3 opacity-60">
-             <div className="flex items-center justify-between bg-black/50 p-4 rounded-2xl border border-white/5">
-                <div>
-                   <p className="text-sm text-white font-medium">Merge: Plot 5 + Plot 6</p>
-                   <p className="text-xs text-neutral-500 mt-0.5">Total Area: 4,800 sqft</p>
-                </div>
-                <div className="text-right">
-                   <p className="text-purple-400 font-bold tracking-wide">₹57.6L</p>
-                   <p className="text-[9px] text-green-500 uppercase tracking-widest mt-1">Highly Viable</p>
-                </div>
-             </div>
-             <div className="flex items-center justify-between bg-black/50 p-4 rounded-2xl border border-white/5">
-                <div>
-                   <p className="text-sm text-white font-medium">Merge: Plot 18 + Plot 23</p>
-                   <p className="text-xs text-neutral-500 mt-0.5">Total Area: 3,000 sqft</p>
-                </div>
-                <div className="text-right">
-                   <p className="text-white font-medium tracking-wide">₹36.0L</p>
-                </div>
-             </div>
+          <div className="flex-1 relative z-10 mb-6 flex flex-col justify-center">
+             {loadingBundling ? (
+                 <div className="flex h-full min-h-[150px] items-center justify-center text-purple-500"><Loader2 className="w-8 h-8 animate-spin" /></div>
+             ) : bundlingInsight ? (
+                 <div className="animate-in fade-in zoom-in-95 duration-500">
+                    <p className="text-xs text-neutral-400 font-light leading-relaxed mb-6 bg-black/30 p-3 rounded-lg border border-white/5">
+                        {bundlingInsight.insight_message}
+                    </p>
+                    {bundlingInsight.bundles.length > 0 ? (
+                        <div className="space-y-3">
+                           {bundlingInsight.bundles.map((bundle, idx) => (
+                             <div key={idx} className="flex items-center justify-between bg-black/60 p-4 rounded-xl border border-white/5 hover:border-purple-500/30 transition-colors">
+                                <div>
+                                   <p className="text-sm text-white font-medium">{bundle.bundle_name}</p>
+                                   <p className="text-xs text-neutral-500 mt-0.5">Total Area: {bundle.total_area} sqft</p>
+                                </div>
+                                <div className="text-right">
+                                   <p className="text-purple-400 font-bold tracking-wide">₹{(bundle.bundled_price / 100000).toFixed(1)}L</p>
+                                   <p className={`text-[9px] uppercase tracking-widest mt-1 ${bundle.viability === 'Highly Viable' ? 'text-green-500' : 'text-purple-400/70'}`}>
+                                      {bundle.viability}
+                                   </p>
+                                </div>
+                             </div>
+                           ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-neutral-500 text-center py-6">No adjacent available plots found.</p>
+                    )}
+                 </div>
+             ) : (
+                 <div className="bg-black/50 p-6 rounded-2xl border border-white/5 h-full flex flex-col justify-center">
+                    <h4 className="text-sm font-medium text-purple-400 mb-2 flex items-center gap-2"><Info className="w-4 h-4" /> How this model works</h4>
+                    <p className="text-sm text-neutral-400 font-light leading-relaxed">
+                        A spatial algorithm that parses the live geometric JSON coordinates of your layout map. It calculates the centroid distance between all &apos;Available&apos; plots to identify physical adjacency, and automatically clusters them to suggest high-ticket bulk deals.
+                    </p>
+                 </div>
+             )}
           </div>
+
+          {role === 'admin' && (
+            <button 
+              onClick={handleRunBundling} 
+              disabled={loadingBundling} 
+              className="w-full py-3.5 bg-white text-black hover:bg-neutral-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:hover:bg-white"
+            >
+              {loadingBundling ? 'Scanning Geometry...' : 'Run Spatial Analysis'}
+            </button>
+          )}
         </div>
 
         {/* Feature 4: Buyer Profile Matcher (PLACEHOLDER WITH INFO) */}

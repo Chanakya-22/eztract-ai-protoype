@@ -44,3 +44,13 @@ class CompletionForecastInsight(BaseModel):
     current_velocity: float
     available_plots: int
     ai_suggestion: str        
+    
+class PlotBundle(BaseModel):
+    bundle_name: str
+    total_area: float
+    bundled_price: float
+    viability: str
+
+class SmartBundlingInsight(BaseModel):
+    bundles: list[PlotBundle]
+    insight_message: str    
