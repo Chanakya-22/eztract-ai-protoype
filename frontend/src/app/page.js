@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { fetchPlots, predictPlotPrice, savePlotToDB, fetchPricingInsight, fetchCompletionForecast, fetchSmartBundling, fetchBuyerPersona, updatePlotStatus } from '../services/api';
 import { 
@@ -37,10 +37,63 @@ function ToastContainer({ toasts, removeToast }) {
   );
 }
 
+// ==========================================
+// ANIMATED COUNTER COMPONENT
+// ==========================================
+function AnimatedCounter({ value, isCurrency = false, duration = 2000 }) {
+  const [count, setCount] = useState(0);
+  const counterRef = useRef(null);
+
+  useEffect(() => {
+    let observer;
+    let animationFrame;
+    let startTime;
+
+    const animate = (timestamp) => {
+      if (!startTime) startTime = timestamp;
+      const progress = timestamp - startTime;
+      
+      // Ease-out calculation
+      const easeOut = 1 - Math.pow(1 - progress / duration, 3);
+      const currentCount = Math.min(value * easeOut, value);
+      
+      setCount(currentCount);
+
+      if (progress < duration) {
+        animationFrame = requestAnimationFrame(animate);
+      } else {
+        setCount(value);
+      }
+    };
+
+    observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        startTime = null;
+        animationFrame = requestAnimationFrame(animate);
+        observer.disconnect(); 
+      }
+    }, { threshold: 0.1 });
+
+    if (counterRef.current) observer.observe(counterRef.current);
+
+    return () => {
+      if (observer) observer.disconnect();
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+    };
+  }, [value, duration]);
+
+  return (
+    <span ref={counterRef}>
+      {isCurrency ? `₹${count.toFixed(1)}Cr` : Math.floor(count)}
+    </span>
+  );
+}
+
 export default function MasterApp() {
   const [currentView, setCurrentView] = useState('landing'); 
   const [role, setRole] = useState('user'); 
   const [showPassword, setShowPassword] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // TOAST STATE MANAGEMENT
   const [toasts, setToasts] = useState([]);
@@ -63,57 +116,113 @@ export default function MasterApp() {
   ]);
   const [selectedProject, setSelectedProject] = useState(null);
 
+  // SCROLL REVEAL ANIMATION OBSERVER (PROMPT 7)
+  useEffect(() => {
+    if (currentView !== 'landing') return;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.remove('opacity-0', 'translate-y-5');
+          entry.target.classList.add('opacity-100', 'translate-y-0');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+
+    // Slight delay ensures DOM is fully painted before querying
+    setTimeout(() => {
+      const elements = document.querySelectorAll('.reveal-on-scroll');
+      elements.forEach(el => observer.observe(el));
+    }, 100);
+
+    return () => observer.disconnect();
+  }, [currentView]);
+
   // WRAPPER FUNCTION TO RENDER CURRENT VIEW
   const renderContent = () => {
     if (currentView === 'landing') {
       return (
-        <div className="min-h-screen bg-black text-white font-sans selection:bg-emerald-500/30 overflow-x-hidden relative">
+        <div className="min-h-screen bg-black text-white font-sans selection:bg-emerald-500/30 overflow-x-hidden relative scroll-smooth flex flex-col">
+          
+          {/* LANDING NAVIGATION */}
           <nav className="fixed top-0 w-full z-50 bg-black/50 backdrop-blur-xl border-b border-white/5">
-            <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between relative z-50">
+              
+              <button onClick={() => { setCurrentView('landing'); setIsMobileMenuOpen(false); }} className="flex items-center gap-3 hover:opacity-80 transition-opacity outline-none">
                 <div className="bg-emerald-500 p-1.5 rounded-lg"><Command className="w-5 h-5 text-black" /></div>
                 <span className="font-bold tracking-wide text-lg">EZTRACT</span>
+              </button>
+
+              <div className="hidden md:flex items-center gap-8 text-sm font-medium text-neutral-400 absolute left-1/2 -translate-x-1/2">
+                 <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
+                 <a href="#ai-models" className="hover:text-white transition-colors">AI Models</a>
               </div>
-              <div className="flex items-center gap-6 text-sm font-medium">
+
+              <div className="hidden md:flex items-center gap-6 text-sm font-medium">
                 <button onClick={() => setCurrentView('login')} className="text-emerald-400 hover:text-emerald-300 transition-colors">Admin Gateway</button>
                 <button onClick={() => { setRole('user'); setCurrentView('dashboard'); }} className="bg-white text-black px-5 py-2.5 rounded-full hover:scale-105 transition-transform font-semibold">
-                  Open Dashboard
+                  View Demo
                 </button>
+              </div>
+
+              {/* MOBILE HAMBURGER BUTTON */}
+              <button className="md:hidden p-2 -mr-2 text-neutral-400 hover:text-white transition-colors" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+                {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
+            </div>
+
+            {/* MOBILE DROPDOWN MENU */}
+            <div className={`md:hidden absolute top-16 left-0 w-full bg-neutral-950 border-b border-white/5 transition-all duration-300 ease-in-out overflow-hidden ${isMobileMenuOpen ? 'max-h-[400px] border-opacity-100 shadow-2xl' : 'max-h-0 border-opacity-0'}`}>
+              <div className="flex flex-col px-6 py-4 space-y-2">
+                <a href="#how-it-works" onClick={() => setIsMobileMenuOpen(false)} className="block py-3 text-neutral-300 hover:text-white font-medium text-lg">How It Works</a>
+                <a href="#ai-models" onClick={() => setIsMobileMenuOpen(false)} className="block py-3 text-neutral-300 hover:text-white font-medium text-lg">AI Models</a>
+                <div className="h-px bg-white/10 my-2"></div>
+                <button onClick={() => { setIsMobileMenuOpen(false); setCurrentView('login'); }} className="text-left py-3 text-emerald-400 hover:text-emerald-300 font-medium text-lg">Admin Gateway</button>
+                <button onClick={() => { setIsMobileMenuOpen(false); setRole('user'); setCurrentView('dashboard'); }} className="text-left py-3 text-white font-medium text-lg">View Demo</button>
               </div>
             </div>
           </nav>
 
-          <section className="relative pt-40 pb-20 px-6 flex flex-col items-center text-center">
+          {/* MOBILE MENU BACKDROP */}
+          {isMobileMenuOpen && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)}></div>
+          )}
+
+          <section className="relative pt-40 pb-20 px-6 flex flex-col items-center text-center flex-1">
             {/* Background Glow */}
             <div className="absolute top-40 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.08)_0%,_transparent_50%)] pointer-events-none"></div>
             
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold tracking-widest uppercase mb-8 text-emerald-400 relative z-10">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Production Prototype V2
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold tracking-widest uppercase mb-8 text-emerald-400 relative z-10 animate-in fade-in duration-1000">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Now in Beta · V2.0
             </div>
             
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tighter max-w-5xl mb-8 relative z-10">
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tighter max-w-5xl mb-8 relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-150 fill-mode-both">
               Intelligent spatial <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500">layout digitization.</span>
             </h1>
             
-            <p className="text-lg md:text-xl text-neutral-400 max-w-2xl mb-12 font-light leading-relaxed relative z-10">
+            <p className="text-lg md:text-xl text-neutral-400 max-w-2xl mb-12 font-light leading-relaxed relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300 fill-mode-both">
               Transform physical blueprints and raw land layouts into interactive, data-rich digital assets. EZTract calculates dimensions, predicts market valuations, and centralizes your registry.
             </p>
 
-            <div className="flex gap-4 relative z-10 mb-32">
+            <div className="flex flex-col sm:flex-row gap-4 relative z-10 mb-32 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-500 fill-mode-both">
               <button onClick={() => { setRole('user'); setCurrentView('dashboard'); }} className="px-8 py-4 rounded-full bg-white text-black font-semibold tracking-wide hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2">
                 Launch Platform Workspace <ArrowRight className="w-4 h-4" />
               </button>
+              <a href="https://github.com/Chanakya-22/eztract-ai-protoype" target="_blank" rel="noopener noreferrer" className="px-8 py-4 rounded-full border border-white/10 text-white font-semibold tracking-wide hover:border-white/30 transition-colors flex items-center justify-center gap-2">
+                View on GitHub <ArrowRight className="w-4 h-4" />
+              </a>
             </div>
 
             {/* HOW IT WORKS */}
-            <div className="max-w-5xl w-full mx-auto relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+            <div id="how-it-works" className="max-w-5xl w-full mx-auto relative z-10 scroll-mt-24">
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative">
                 {/* Connecting Dashed Line (Desktop Only) */}
                 <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-[2px] border-t-2 border-dashed border-white/10 z-0"></div>
 
                 {/* Step 1 */}
-                <div className="relative z-10 flex flex-col items-center text-center bg-black px-6">
+                <div className="relative z-10 flex flex-col items-center text-center bg-black px-6 reveal-on-scroll opacity-0 translate-y-5 transition-all duration-700 ease-out" style={{ transitionDelay: '0ms' }}>
                   <div className="w-24 h-24 bg-neutral-950 border border-white/10 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.05)]">
                     <Map className="w-10 h-10 text-emerald-500" />
                   </div>
@@ -123,7 +232,7 @@ export default function MasterApp() {
                 </div>
 
                 {/* Step 2 */}
-                <div className="relative z-10 flex flex-col items-center text-center bg-black px-6">
+                <div className="relative z-10 flex flex-col items-center text-center bg-black px-6 reveal-on-scroll opacity-0 translate-y-5 transition-all duration-700 ease-out" style={{ transitionDelay: '150ms' }}>
                   <div className="w-24 h-24 bg-neutral-950 border border-white/10 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.05)]">
                     <Cpu className="w-10 h-10 text-emerald-500" />
                   </div>
@@ -133,7 +242,7 @@ export default function MasterApp() {
                 </div>
 
                 {/* Step 3 */}
-                <div className="relative z-10 flex flex-col items-center text-center bg-black px-6">
+                <div className="relative z-10 flex flex-col items-center text-center bg-black px-6 reveal-on-scroll opacity-0 translate-y-5 transition-all duration-700 ease-out" style={{ transitionDelay: '300ms' }}>
                   <div className="w-24 h-24 bg-neutral-950 border border-white/10 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.05)]">
                     <Database className="w-10 h-10 text-emerald-500" />
                   </div>
@@ -143,24 +252,107 @@ export default function MasterApp() {
                 </div>
               </div>
 
-              {/* STATIC METRICS ROW */}
-              <div className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-8 py-10 border-y border-white/5 bg-neutral-900/20 backdrop-blur-sm rounded-3xl">
+              {/* FEATURE SHOWCASE: AI MODELS */}
+              <div id="ai-models" className="mt-40 mb-16 scroll-mt-24 text-left">
+                <div className="text-center mb-16 reveal-on-scroll opacity-0 translate-y-5 transition-all duration-700 ease-out">
+                  <h2 className="text-3xl md:text-5xl font-medium text-white mb-4 tracking-tight">Everything your sales team needs.</h2>
+                  <p className="text-neutral-400 text-lg font-light">Four AI models. One unified platform.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  
+                  {/* AI Feature 1 */}
+                  <div className="bg-neutral-900/30 border border-white/5 border-t-emerald-500/30 rounded-3xl p-8 hover:-translate-y-1 hover:shadow-2xl hover:bg-neutral-900/50 transition-all duration-300 group reveal-on-scroll opacity-0 translate-y-5 ease-out" style={{ transitionDelay: '0ms', transitionDuration: '700ms' }}>
+                    <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-6 border border-emerald-500/20">
+                      <TrendingUp className="w-6 h-6 text-emerald-400" />
+                    </div>
+                    <h3 className="text-xl font-medium text-white mb-3">Optimal Pricing Window</h3>
+                    <p className="text-neutral-400 text-sm leading-relaxed mb-6 font-light">Predicts the exact week and price point that maximizes sale probability, acting as a live moving average of your layout&apos;s current market velocity.</p>
+                    <p className="text-[10px] font-bold text-emerald-500 tracking-widest uppercase flex items-center gap-1 group-hover:translate-x-1 transition-transform">Live in dashboard <ArrowRight className="w-3 h-3" /></p>
+                  </div>
+
+                  {/* AI Feature 2 */}
+                  <div className="bg-neutral-900/30 border border-white/5 border-t-blue-500/30 rounded-3xl p-8 hover:-translate-y-1 hover:shadow-2xl hover:bg-neutral-900/50 transition-all duration-300 group reveal-on-scroll opacity-0 translate-y-5 ease-out" style={{ transitionDelay: '150ms', transitionDuration: '700ms' }}>
+                    <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mb-6 border border-blue-500/20">
+                      <Clock className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <h3 className="text-xl font-medium text-white mb-3">Completion Forecasting</h3>
+                    <p className="text-neutral-400 text-sm leading-relaxed mb-6 font-light">Uses linear regression on historical booking velocity to accurately forecast your layout&apos;s 100% sell-out date and optimize discount structures.</p>
+                    <p className="text-[10px] font-bold text-blue-500 tracking-widest uppercase flex items-center gap-1 group-hover:translate-x-1 transition-transform">Live in dashboard <ArrowRight className="w-3 h-3" /></p>
+                  </div>
+
+                  {/* AI Feature 3 */}
+                  <div className="bg-neutral-900/30 border border-white/5 border-t-purple-500/30 rounded-3xl p-8 hover:-translate-y-1 hover:shadow-2xl hover:bg-neutral-900/50 transition-all duration-300 group reveal-on-scroll opacity-0 translate-y-5 ease-out" style={{ transitionDelay: '300ms', transitionDuration: '700ms' }}>
+                    <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mb-6 border border-purple-500/20">
+                      <Link className="w-6 h-6 text-purple-400" />
+                    </div>
+                    <h3 className="text-xl font-medium text-white mb-3">Smart Plot Bundling</h3>
+                    <p className="text-neutral-400 text-sm leading-relaxed mb-6 font-light">A complex spatial adjacency engine that auto-clusters neighboring plots into high-ticket bundle deals, prioritizing premium commercial buyers.</p>
+                    <p className="text-[10px] font-bold text-purple-500 tracking-widest uppercase flex items-center gap-1 group-hover:translate-x-1 transition-transform">Live in dashboard <ArrowRight className="w-3 h-3" /></p>
+                  </div>
+
+                  {/* AI Feature 4 */}
+                  <div className="bg-neutral-900/30 border border-white/5 border-t-cyan-500/30 rounded-3xl p-8 hover:-translate-y-1 hover:shadow-2xl hover:bg-neutral-900/50 transition-all duration-300 group reveal-on-scroll opacity-0 translate-y-5 ease-out" style={{ transitionDelay: '450ms', transitionDuration: '700ms' }}>
+                    <div className="w-12 h-12 bg-cyan-500/10 rounded-xl flex items-center justify-center mb-6 border border-cyan-500/20">
+                      <Users className="w-6 h-6 text-cyan-400" />
+                    </div>
+                    <h3 className="text-xl font-medium text-white mb-3">Buyer Profile Matcher</h3>
+                    <p className="text-neutral-400 text-sm leading-relaxed mb-6 font-light">Generative persona synthesis that cross-references plot dimensions against demographic data to automatically script targeted sales pitches per plot.</p>
+                    <p className="text-[10px] font-bold text-cyan-500 tracking-widest uppercase flex items-center gap-1 group-hover:translate-x-1 transition-transform">Live in dashboard <ArrowRight className="w-3 h-3" /></p>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* ANIMATED METRICS ROW */}
+              <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 py-10 border-y border-white/5 bg-neutral-900/20 backdrop-blur-sm rounded-3xl reveal-on-scroll opacity-0 translate-y-5 transition-all duration-700 ease-out" style={{ transitionDelay: '150ms' }}>
                 <div className="text-center">
-                  <p className="text-5xl font-light text-white mb-2">36</p>
+                  <p className="text-5xl font-light text-white mb-2">
+                    <AnimatedCounter value={36} />
+                  </p>
                   <p className="text-xs uppercase tracking-widest text-emerald-500/80 font-bold">Plots Digitized</p>
                 </div>
                 <div className="text-center md:border-x border-white/5">
-                  <p className="text-5xl font-light text-white mb-2">₹8.2Cr</p>
+                  <p className="text-5xl font-light text-white mb-2">
+                    <AnimatedCounter value={8.2} isCurrency={true} />
+                  </p>
                   <p className="text-xs uppercase tracking-widest text-emerald-500/80 font-bold">Portfolio Tracked</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-5xl font-light text-white mb-2">4</p>
+                  <p className="text-5xl font-light text-white mb-2">
+                    <AnimatedCounter value={4} />
+                  </p>
                   <p className="text-xs uppercase tracking-widest text-emerald-500/80 font-bold">AI Models Active</p>
                 </div>
               </div>
 
             </div>
           </section>
+
+          {/* APPLE-STYLE FOOTER (PROMPT 6) */}
+          <footer className="w-full bg-neutral-950 border-t border-white/5 py-12 px-6 mt-auto relative z-10">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8 text-center md:text-left">
+                
+                <button onClick={() => setCurrentView('landing')} className="flex items-center gap-2 hover:opacity-80 transition-opacity outline-none">
+                  <div className="bg-emerald-500 p-1.5 rounded-lg"><Command className="w-4 h-4 text-black" /></div>
+                  <span className="font-bold tracking-wide text-lg text-white">EZTRACT</span>
+                </button>
+                
+                <div className="flex flex-wrap justify-center items-center gap-6 text-sm text-neutral-400 font-medium">
+                  <a href="https://github.com/Chanakya-22/eztract-ai-protoype" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">GitHub</a>
+                  <button onClick={() => setCurrentView('login')} className="hover:text-white transition-colors">Admin Gateway</button>
+                  <button onClick={() => { setRole('user'); setCurrentView('dashboard'); }} className="hover:text-white transition-colors">Open Dashboard</button>
+                </div>
+
+              </div>
+              
+              <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-neutral-600 text-center md:text-left">
+                <p>© 2025 EZTract. Built as a production prototype.</p>
+                <p>FastAPI · Next.js · Supabase · Python AI</p>
+              </div>
+            </div>
+          </footer>
         </div>
       );
     }
@@ -172,7 +364,8 @@ export default function MasterApp() {
             <button onClick={() => setCurrentView('landing')} className="absolute top-8 right-8 text-neutral-500 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
             
             <div className="flex justify-center mb-8"><div className="bg-emerald-500/10 p-4 rounded-full"><Lock className="w-8 h-8 text-emerald-500" /></div></div>
-            <h2 className="text-3xl font-medium text-center text-white mb-2 tracking-tight">Admin Gateway</h2>
+            <h2 className="text-3xl font-medium text-center text-white mb-1 tracking-tight">Admin Gateway</h2>
+            <p className="text-center text-neutral-600 text-sm mb-8">Restricted to authorized personnel only.</p>
             
             <form onSubmit={async (e) => {
               e.preventDefault();
@@ -230,7 +423,7 @@ export default function MasterApp() {
 }
 
 // ==========================================
-// DASHBOARD LAYOUT (MOBILE SIDEBAR)
+// DASHBOARD LAYOUT
 // ==========================================
 function DashboardLayout({ children, role, currentView, onViewChange, onLogout }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -255,54 +448,72 @@ function DashboardLayout({ children, role, currentView, onViewChange, onLogout }
 
       {/* SIDEBAR */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-neutral-950 border-r border-white/5 flex flex-col transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-20 flex items-center px-8 border-b border-white/5 justify-between md:justify-start">
-          <div className="flex items-center">
+        <div className="h-20 flex items-center px-8 border-b border-white/5 justify-between md:justify-start shrink-0">
+          <button onClick={() => onViewChange('landing')} className="flex items-center hover:opacity-80 transition-opacity outline-none">
             <Command className="w-6 h-6 text-emerald-500 mr-3" />
             <span className="font-bold tracking-widest text-lg">EZTRACT</span>
-          </div>
-          <button onClick={closeSidebar} className="md:hidden text-neutral-500 hover:text-white">
+          </button>
+          <button onClick={closeSidebar} className="md:hidden text-neutral-500 hover:text-white outline-none">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-6 flex-1 space-y-2">
-          <p className="text-xs font-bold text-neutral-600 uppercase tracking-widest mb-4 ml-2">Menu</p>
+        
+        {/* SIDEBAR NAVIGATION CONTENT */}
+        <div className="p-6 flex-1 flex flex-col overflow-y-auto custom-scrollbar">
           
-          <button onClick={() => handleNav('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium border transition-colors ${currentView === 'dashboard' || currentView === 'map' ? 'bg-neutral-900 text-white border-white/5' : 'text-neutral-500 hover:text-white hover:bg-neutral-900/50 border-transparent'}`}>
-            <LayoutDashboard className="w-5 h-5" /> Projects Layout
-          </button>
-          
-          <button onClick={() => handleNav('insights')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium border transition-colors ${currentView === 'insights' ? 'bg-neutral-900 text-white border-white/5' : 'text-neutral-500 hover:text-white hover:bg-neutral-900/50 border-transparent'}`}>
-            <Cpu className="w-5 h-5" /> AI Revenue Insights
-          </button>
-
-        </div>
-        <div className="p-6 border-t border-white/5">
-          <div className="flex items-center gap-3 mb-6 px-2">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 font-bold border border-emerald-500/30 shrink-0">
-              {role === 'admin' ? 'A' : 'G'}
-            </div>
-            <div className="truncate">
-              <p className="text-sm font-medium text-white truncate">{role === 'admin' ? 'Administrator' : 'Guest Viewer'}</p>
-            </div>
+          {/* WORKSPACE SECTION */}
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-4 ml-2">Workspace</p>
+            <button onClick={() => handleNav('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium border transition-colors ${currentView === 'dashboard' || currentView === 'map' ? 'bg-neutral-900 text-white border-l-2 border-l-emerald-500 border-y-white/5 border-r-white/5 rounded-l-sm' : 'text-neutral-500 hover:text-white hover:bg-neutral-900/50 border-transparent'}`}>
+              <LayoutDashboard className="w-5 h-5" /> Projects Layout
+            </button>
+            <button onClick={() => handleNav('insights')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium border transition-colors ${currentView === 'insights' ? 'bg-neutral-900 text-white border-l-2 border-l-emerald-500 border-y-white/5 border-r-white/5 rounded-l-sm' : 'text-neutral-500 hover:text-white hover:bg-neutral-900/50 border-transparent'}`}>
+              <Cpu className="w-5 h-5" /> AI Revenue Insights
+            </button>
           </div>
-          <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-white bg-neutral-900 hover:bg-neutral-800 py-3 rounded-xl transition-colors font-medium border border-white/5">
-            <LogOut className="w-4 h-4" /> Sign Out
-          </button>
+
+          <div className="h-px bg-white/5 my-6 mx-2"></div>
+
+          {/* ACCOUNT SECTION */}
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-4 ml-2">Account</p>
+            
+            <div className="flex items-center justify-between px-4 py-3 bg-white/5 rounded-xl border border-white/5 mb-2">
+               <span className="text-sm font-medium text-neutral-400">Role Access</span>
+               <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded-md ${role === 'admin' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-neutral-800 text-neutral-400 border border-neutral-700'}`}>
+                  {role === 'admin' ? 'Admin' : 'Guest'}
+               </span>
+            </div>
+
+            <a href="https://github.com/Chanakya-22/eztract-ai-protoype" target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium border border-transparent text-neutral-500 hover:text-white hover:bg-neutral-900/50 transition-colors">
+              <FileText className="w-5 h-5" /> Documentation
+            </a>
+            
+            <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium border border-transparent text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-colors mt-2">
+              <LogOut className="w-5 h-5" /> Sign Out
+            </button>
+          </div>
+
+          {/* VERSION TAG */}
+          <div className="mt-auto pt-8 pb-2 text-center">
+             <p className="text-[10px] font-medium text-neutral-700 uppercase tracking-widest">v2.0 · Prototype</p>
+          </div>
+
         </div>
       </aside>
 
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#050505] relative">
         
-        {/* MOBILE HEADER (ONLY VISIBLE ON SMALL SCREENS) */}
+        {/* MOBILE HEADER */}
         <div className="md:hidden flex items-center p-4 border-b border-white/5 bg-neutral-950 shrink-0 gap-3 relative z-30">
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition-colors">
+          <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition-colors outline-none">
             <Menu className="w-6 h-6" />
           </button>
-          <div className="flex items-center gap-2">
+          <button onClick={() => onViewChange('landing')} className="flex items-center gap-2 hover:opacity-80 transition-opacity outline-none">
             <Command className="w-5 h-5 text-emerald-500" />
             <span className="font-bold tracking-widest text-base">EZTRACT</span>
-          </div>
+          </button>
         </div>
 
         {/* PAGE CONTENT */}
@@ -699,7 +910,7 @@ function MapEngine({ role, project, onBack, addToast }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
-  // PLOT STATUS EDIT STATE (PROMPT 7)
+  // PLOT STATUS EDIT STATE
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [editStatusValue, setEditStatusValue] = useState("");
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -800,9 +1011,9 @@ function MapEngine({ role, project, onBack, addToast }) {
                <span className="text-2xl font-light text-white mt-1">{totalPlots}</span>
             </div>
 
-            <div className="bg-neutral-900/40 border border-white/5 rounded-xl p-4 flex flex-col border-l-4 border-l-green-500">
+            <div className="bg-neutral-900/40 border border-white/5 rounded-xl p-4 flex flex-col border-l-4 border-l-emerald-500">
                <span className="text-xs text-neutral-500 uppercase tracking-widest font-semibold flex items-center gap-2">
-                 <div className="w-2 h-2 rounded-full bg-green-500"></div> Available
+                 <div className="w-2 h-2 rounded-full bg-emerald-500"></div> Available
                </span>
                <span className="text-2xl font-light text-white mt-1">{availablePlots}</span>
             </div>
@@ -814,9 +1025,9 @@ function MapEngine({ role, project, onBack, addToast }) {
                <span className="text-2xl font-light text-white mt-1">{bookedPlots}</span>
             </div>
 
-            <div className="bg-neutral-900/40 border border-white/5 rounded-xl p-4 flex flex-col border-l-4 border-l-neutral-600">
+            <div className="bg-neutral-900/40 border border-white/5 rounded-xl p-4 flex flex-col border-l-4 border-l-red-500/50">
                <span className="text-xs text-neutral-500 uppercase tracking-widest font-semibold flex items-center gap-2">
-                 <div className="w-2 h-2 rounded-full bg-neutral-600"></div> Sold
+                 <div className="w-2 h-2 rounded-full bg-red-500/50"></div> Sold
                </span>
                <span className="text-2xl font-light text-white mt-1">{soldPlots}</span>
             </div>
@@ -903,7 +1114,7 @@ function MapEngine({ role, project, onBack, addToast }) {
                   <div key={plot.id} onClick={() => setViewPlot(plot)} className="bg-black/50 border border-white/5 rounded-2xl p-4 hover:bg-neutral-800 cursor-pointer transition-colors">
                     <div className="flex justify-between items-center mb-2">
                       <span className="font-medium tracking-wide text-sm">Plot {plot.plot_number}</span>
-                      <div className={`w-2.5 h-2.5 rounded-full ${plot.status === 'Available' ? 'bg-green-500' : plot.status === 'Sold' ? 'bg-neutral-600' : 'bg-amber-500'}`}></div>
+                      <div className={`w-2.5 h-2.5 rounded-full ${plot.status === 'Available' ? 'bg-emerald-500' : plot.status === 'Sold' ? 'bg-red-500/50' : 'bg-amber-500'}`}></div>
                     </div>
                     <div className="text-xs text-neutral-500 flex justify-between font-mono">
                       <span>{plot.total_area_sqft} sf</span>
@@ -929,13 +1140,13 @@ function MapEngine({ role, project, onBack, addToast }) {
                 {!isEditingStatus ? (
                   <div className="flex items-center gap-3 mb-6">
                     <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
-                      viewPlot.status === 'Available' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
-                      viewPlot.status === 'Sold' ? 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20' : 
+                      viewPlot.status === 'Available' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
+                      viewPlot.status === 'Sold' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
                       'bg-amber-500/10 text-amber-400 border-amber-500/20'
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${
-                        viewPlot.status === 'Available' ? 'bg-green-500 animate-pulse' : 
-                        viewPlot.status === 'Sold' ? 'bg-neutral-400' : 'bg-amber-500'
+                        viewPlot.status === 'Available' ? 'bg-emerald-500 animate-pulse' : 
+                        viewPlot.status === 'Sold' ? 'bg-red-500/50' : 'bg-amber-500'
                       }`}></span>
                       {viewPlot.status}
                     </span>
