@@ -64,3 +64,14 @@ export const fetchSmartBundling = async () => {
     return null;
   }
 };
+
+export const fetchBuyerPersona = async (plotNumber) => {
+  try {
+    const response = await fetch(`http://localhost:8000/api/insights/buyer-persona/${plotNumber}`);
+    if (!response.ok) throw new Error("Persona generation failed");
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching persona insight:", error);
+    return null;
+  }
+};
