@@ -430,7 +430,7 @@ function InsightsDashboard({ role }) {
                  <div className="bg-black/50 p-6 rounded-2xl border border-white/5 h-full flex flex-col justify-center">
                     <h4 className="text-sm font-medium text-purple-400 mb-2 flex items-center gap-2"><Info className="w-4 h-4" /> How this model works</h4>
                     <p className="text-sm text-neutral-400 font-light leading-relaxed">
-                        A spatial algorithm that parses the live geometric JSON coordinates of your layout map. It calculates the centroid distance between all 'Available' plots to identify physical adjacency, and automatically clusters them to suggest high-ticket bulk deals.
+                        A spatial algorithm that parses the live geometric JSON coordinates of your layout map. It calculates the centroid distance between all &apos;Available&apos; plots to identify physical adjacency, and automatically clusters them to suggest high-ticket bulk deals.
                     </p>
                  </div>
              )}
