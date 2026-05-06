@@ -54,3 +54,9 @@ class PlotBundle(BaseModel):
 class SmartBundlingInsight(BaseModel):
     bundles: list[PlotBundle]
     insight_message: str    
+    
+class BuyerPersonaInsight(BaseModel):
+    plot_number: str
+    persona_name: str
+    target_demographic: str
+    recommended_pitch: str    

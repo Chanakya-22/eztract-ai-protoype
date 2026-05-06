@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { fetchPlots, predictPlotPrice, savePlotToDB, fetchPricingInsight, fetchCompletionForecast, fetchSmartBundling } from '../services/api';
+import { fetchPlots, predictPlotPrice, savePlotToDB, fetchPricingInsight, fetchCompletionForecast, fetchSmartBundling, fetchBuyerPersona } from '../services/api';
 import { 
   Loader2, PlusCircle, CheckCircle, X, User, Phone, ShieldCheck, ArrowRight, Lock, 
   Eye, EyeOff, Command, Layers, Cpu, Database, Map, LayoutDashboard, Settings, LogOut, 
-  FileText, Search, TrendingUp, Clock, Users, Link, Info, TrendingDown, RotateCcw
+  FileText, Search, TrendingUp, Clock, Users, Link, Info, TrendingDown, RotateCcw, Sparkles
 } from 'lucide-react';
 
 const PlotCanvas = dynamic(() => import('../components/PlotCanvas'), { ssr: false });
@@ -208,6 +208,11 @@ function InsightsDashboard({ role }) {
   const [bundlingInsight, setBundlingInsight] = useState(null);
   const [loadingBundling, setLoadingBundling] = useState(false);
 
+  // Feature 4 State
+  const [personaInsight, setPersonaInsight] = useState(null);
+  const [loadingPersona, setLoadingPersona] = useState(false);
+  const [personaPlot, setPersonaPlot] = useState("");
+
   const handleRunPricing = async () => {
     if (!targetPlot) return;
     setLoadingPricing(true);
@@ -228,6 +233,14 @@ function InsightsDashboard({ role }) {
     const data = await fetchSmartBundling();
     setBundlingInsight(data);
     setLoadingBundling(false);
+  };
+
+  const handleRunPersona = async () => {
+    if (!personaPlot) return;
+    setLoadingPersona(true);
+    const data = await fetchBuyerPersona(personaPlot);
+    setPersonaInsight(data);
+    setLoadingPersona(false);
   };
 
   return (
@@ -312,7 +325,7 @@ function InsightsDashboard({ role }) {
                 <div className="bg-black/50 p-6 rounded-2xl border border-white/5 h-full flex flex-col justify-center">
                   <h4 className="text-sm font-medium text-emerald-400 mb-2 flex items-center gap-2"><Info className="w-4 h-4" /> How this model works</h4>
                   <p className="text-sm text-neutral-400 leading-relaxed font-light">
-                    Calculates a live moving average of your layout's current price-per-square-foot. It then applies spatial velocity modifiers (smaller plots sell significantly faster) to predict the exact window of time a specific plot will take to sell, and calculates hard price-drop thresholds.
+                    Calculates a live moving average of your layout&apos;s current price-per-square-foot. It then applies spatial velocity modifiers (smaller plots sell significantly faster) to predict the exact window of time a specific plot will take to sell, and calculates hard price-drop thresholds.
                   </p>
                 </div>
              )}
@@ -367,7 +380,7 @@ function InsightsDashboard({ role }) {
                 <div className="bg-black/50 p-6 rounded-2xl border border-white/5 h-full flex flex-col justify-center">
                   <h4 className="text-sm font-medium text-blue-400 mb-2 flex items-center gap-2"><Info className="w-4 h-4" /> How this model works</h4>
                   <p className="text-sm text-neutral-400 font-light leading-relaxed">
-                      Uses a linear regression algorithm on historical 'Sold' and 'Booked' statuses against the layout's active timeline to calculate market velocity. It then projects the exact month the entire layout will reach 100% capacity and offers strategic discount modeling.
+                      Uses a linear regression algorithm on historical &apos;Sold&apos; and &apos;Booked&apos; statuses against the layout&apos;s active timeline to calculate market velocity. It then projects the exact month the entire layout will reach 100% capacity and offers strategic discount modeling.
                   </p>
                 </div>
             )}
@@ -447,29 +460,69 @@ function InsightsDashboard({ role }) {
           )}
         </div>
 
-        {/* Feature 4: Buyer Profile Matcher (PLACEHOLDER WITH INFO) */}
+        {/* Feature 4: Buyer Profile Matcher */}
         <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-8 relative overflow-hidden flex flex-col justify-between">
-          <div>
-            <h3 className="text-lg font-medium text-white mb-6 flex items-center gap-2"><Users className="w-5 h-5 text-cyan-400" /> Buyer Profile Matcher</h3>
-            
-            <div className="bg-black/50 p-5 rounded-2xl border border-white/5 mb-6 flex gap-3 items-start relative z-10">
-                <Info className="w-4 h-4 text-cyan-400 mt-0.5 shrink-0" />
-                <p className="text-xs text-neutral-400 font-light leading-relaxed">
-                    <strong className="text-neutral-200 font-medium">Model Architecture: </strong> 
-                    A generative text model that cross-references plot dimensions and pricing against demographic data to synthesize a highly targeted buyer persona and actionable sales pitch.
-                </p>
-            </div>
-
-            <div className="bg-cyan-500/5 border border-cyan-500/10 p-5 rounded-2xl mb-4 opacity-80">
-               <p className="text-[10px] text-cyan-500 uppercase tracking-widest mb-3 font-bold">Generated Persona: Mid-Tier Residential</p>
-               <p className="text-sm text-neutral-300 leading-relaxed font-light">
-                 "Plots in the 1,500-2,000 sqft range (₹18L - ₹24L) currently attract salaried IT professionals aged 32-45. 
-                 <strong className="text-white font-medium"> Recommended Pitch:</strong> Emphasize proximity to schools, security of the layout, and long-term appreciation over immediate resale value."
-               </p>
+          <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none"><Users className="w-32 h-32" /></div>
+          
+          <div className="flex justify-between items-center mb-6 relative z-10">
+            <h3 className="text-lg font-medium text-white flex items-center gap-2"><Users className="w-5 h-5 text-cyan-400" /> Buyer Profile Matcher</h3>
+            <div className="flex items-center gap-3">
+               {personaInsight && (
+                  <button onClick={() => setPersonaInsight(null)} className="text-neutral-500 hover:text-white transition-colors" title="Clear Model">
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+               )}
+               <div className="flex items-center gap-2 bg-black border border-white/10 rounded-lg pr-1 overflow-hidden focus-within:border-cyan-500 transition-colors">
+                 <span className="text-xs text-neutral-500 pl-3 uppercase tracking-widest font-semibold">Plot</span>
+                 <input 
+                   type="text" 
+                   value={personaPlot} 
+                   onChange={(e) => setPersonaPlot(e.target.value)} 
+                   className="bg-transparent py-1.5 w-12 text-white text-sm outline-none text-center font-mono" 
+                   placeholder="#" 
+                 />
+               </div>
             </div>
           </div>
-          {role === 'admin' && <button className="w-full py-3.5 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-medium transition-colors border border-white/5 mt-4">Generate New Pitch via GenAI</button>}
+
+          <div className="flex-1 relative z-10 mb-6 flex flex-col justify-center">
+             {loadingPersona ? (
+                 <div className="flex h-full min-h-[150px] items-center justify-center text-cyan-500"><Loader2 className="w-8 h-8 animate-spin" /></div>
+             ) : personaInsight ? (
+                 <div className="animate-in fade-in zoom-in-95 duration-500">
+                    <div className="bg-cyan-500/5 border border-cyan-500/10 p-5 rounded-2xl mb-4">
+                       <p className="text-[10px] text-cyan-500 uppercase tracking-widest mb-3 font-bold flex items-center gap-2">
+                         <Sparkles className="w-3 h-3" /> Target Persona: {personaInsight.persona_name}
+                       </p>
+                       <p className="text-sm text-neutral-300 leading-relaxed font-light mb-4">
+                         <strong className="text-white font-medium">Demographic:</strong> {personaInsight.target_demographic}
+                       </p>
+                       <p className="text-sm text-neutral-300 leading-relaxed font-light border-t border-white/10 pt-4">
+                         <strong className="text-white font-medium">Recommended Pitch:</strong> {personaInsight.recommended_pitch}
+                       </p>
+                    </div>
+                 </div>
+             ) : (
+                 <div className="bg-black/50 p-6 rounded-2xl border border-white/5 h-full flex flex-col justify-center">
+                    <h4 className="text-sm font-medium text-cyan-400 mb-2 flex items-center gap-2"><Info className="w-4 h-4" /> How this model works</h4>
+                    <p className="text-sm text-neutral-400 font-light leading-relaxed">
+                        A heuristic generative engine that cross-references plot dimensions and pricing against demographic data to synthesize a highly targeted buyer persona and actionable sales pitch for your agents.
+                    </p>
+                 </div>
+             )}
+          </div>
+
+          {role === 'admin' && (
+            <button 
+              onClick={handleRunPersona} 
+              disabled={loadingPersona || !personaPlot} 
+              className="w-full py-3.5 bg-white text-black hover:bg-neutral-200 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:hover:bg-white"
+            >
+              {loadingPersona ? 'Generating Persona...' : 'Generate New Pitch via GenAI'}
+            </button>
+          )}
         </div>
+
       </div>
     </div>
   );

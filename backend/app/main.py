@@ -286,4 +286,36 @@ def get_smart_bundling(db: Session = Depends(database.get_db)):
     return {
         "bundles": top_bundles,
         "insight_message": insight_message
-    }    
+    }
+    
+@app.get("/api/insights/buyer-persona/{plot_number}", response_model=schemas.BuyerPersonaInsight)
+def get_buyer_persona(plot_number: str, db: Session = Depends(database.get_db)):
+    target_plot = db.query(models.Plot).filter(models.Plot.plot_number == plot_number).first()
+    if not target_plot:
+        raise HTTPException(status_code=404, detail="Plot not found in database")
+
+    sqft = target_plot.total_area_sqft
+    price = target_plot.base_price
+    price_lakhs = round(price / 100000, 1)
+
+    # Heuristic "GenAI" Engine
+    if sqft < 1200:
+        persona = "Budget-Conscious First-Time Buyer"
+        demo = "Young professionals or newlyweds, aged 25-32."
+        pitch = f"Emphasize the accessible entry price of ₹{price_lakhs}L. Highlight minimal maintenance and the potential to build a starter home in a secure, growing community."
+    elif sqft <= 2400:
+        persona = "Mid-Tier Residential Upgrader"
+        demo = "Established families with children, aged 32-45."
+        pitch = f"Focus on the spacious {sqft} sqft footprint for a multi-bedroom home. Highlight proximity to schools, neighborhood parks, and long-term appreciation value at the ₹{price_lakhs}L price point."
+    else:
+        persona = "High-Net-Worth Custom Builder"
+        demo = "Successful executives or investors, aged 45+."
+        pitch = f"Position this massive {sqft} sqft plot as a premium, generational estate opportunity. Emphasize exclusivity, privacy, and architectural freedom. Justify the ₹{price_lakhs}L valuation through scarcity."
+
+    return {
+        "plot_number": plot_number,
+        "persona_name": persona,
+        "target_demographic": demo,
+        "recommended_pitch": pitch
+    }
+            
