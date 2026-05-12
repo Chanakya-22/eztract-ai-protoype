@@ -3,3 +3,6 @@ uvicorn
 sqlalchemy
 psycopg2-binary
 python-dotenv
+torch
+torchvision
+opencv-python
