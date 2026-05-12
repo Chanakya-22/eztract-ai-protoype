@@ -7,6 +7,12 @@ from .database import engine
 from datetime import datetime, timedelta
 import json
 import itertools
+from PIL import Image
+import io
+from fastapi import UploadFile, File
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "ml"))
+from predict import run_prediction
 
 # Initialize the FastAPI app
 app = FastAPI(title="EZTract AI Prototype API")
@@ -331,3 +337,29 @@ def update_plot_status(plot_id: int, status_update: dict, db: Session = Depends(
         db.commit()
         db.refresh(plot)
     return plot            
+
+@app.post("/api/ai/detect-plots")
+async def detect_plots(file: UploadFile = File(...)):
+    """
+    Accepts an uploaded layout image.
+    Returns a list of polygon coordinate arrays detected by the U-Net —
+    one polygon per plot, ready to pre-populate PlotCanvas.
+ 
+    Frontend usage:
+        const formData = new FormData();
+        formData.append("file", imageFile);
+        const res = await fetch("/api/ai/detect-plots", {
+            method: "POST",
+            body: formData
+        });
+        const { polygons } = await res.json();
+        // polygons → [ [[x,y],[x,y],...], [[x,y],...], ... ]
+    """
+    contents = await file.read()
+    img      = Image.open(io.BytesIO(contents)).convert("RGB")
+    polygons = run_prediction(img)
+    return {
+        "status":   "success",
+        "n_plots":  len(polygons),
+        "polygons": polygons
+    }
