@@ -73,3 +73,10 @@ Thumbs.db:encryptable
 .idea/
 *.swp
 *.suo
+
+# the ml part and the content to be ignored in that
+backend/ml/data/
+backend/ml/checkpoints/
+backend/ml/training_log.json
+backend/ml/__pycache__/
+backend/ml/*.pyc
