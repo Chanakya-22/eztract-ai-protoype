@@ -109,9 +109,9 @@ export default function MasterApp() {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
   
+  // FIX 1: Removed Green Valley Estates. Clean slate.
   const [projects, setProjects] = useState([
-    { id: 'proj_1', name: 'Kumaran Nagar Layout', location: 'Chennai, Tamil Nadu', totalArea: '4.2 Acres', status: 'Active', image: '/layout.jpg' },
-    { id: 'proj_2', name: 'Green Valley Estates', location: 'Coimbatore, Tamil Nadu', totalArea: '12.5 Acres', status: 'Draft', image: null }
+    { id: 'proj_1', name: 'Kumaran Nagar Layout', location: 'Chennai, Tamil Nadu', totalArea: '4.2 Acres', status: 'Active', image: '/layout.jpg' }
   ]);
   const [selectedProject, setSelectedProject] = useState(null);
 
@@ -146,7 +146,6 @@ export default function MasterApp() {
            };
          });
 
-         // FIX: Generate a local blob URL for the uploaded image so the canvas can render it
          const imageUrl = URL.createObjectURL(file);
 
          const newProject = {
@@ -155,7 +154,7 @@ export default function MasterApp() {
             location: 'Unassigned Location',
             totalArea: 'Calculating...',
             status: 'Active',
-            image: imageUrl // <--- Attached dynamic image
+            image: imageUrl 
          };
 
          setProjects(prev => [...prev, newProject]);
@@ -170,7 +169,7 @@ export default function MasterApp() {
     }
     
     setIsDetectingCV(false);
-    e.target.value = null; // reset input
+    e.target.value = null; 
   };
 
   // SCROLL REVEAL ANIMATION OBSERVER
@@ -443,9 +442,7 @@ export default function MasterApp() {
 
     return (
       <DashboardLayout role={role} currentView={currentView} onViewChange={setCurrentView} onLogout={() => setCurrentView('landing')}>
-        {/* FIX: When selecting an existing project, explicitly wipe out any lingering CV queue memory */}
         {currentView === 'dashboard' && <ProjectsDashboard projects={projects} onSelectProject={(p) => { setSelectedProject(p); setInitialCvQueue([]); setCurrentView('map'); }} role={role} isDetectingCV={isDetectingCV} onNewProjectUpload={handleNewProjectUpload} />}
-        {/* FIX: Pass dynamic imageUrl and a clear callback down to MapEngine */}
         {currentView === 'map' && selectedProject && <MapEngine role={role} project={selectedProject} onBack={() => { setCurrentView('dashboard'); setInitialCvQueue([]); }} addToast={addToast} initialCvQueue={initialCvQueue} clearCvQueue={() => setInitialCvQueue([])} imageUrl={selectedProject.image || '/layout.jpg'} />}
         {currentView === 'insights' && <InsightsDashboard role={role} />}
       </DashboardLayout>
@@ -957,26 +954,28 @@ function MapEngine({ role, project, onBack, addToast, initialCvQueue = [], clear
   const loadData = async () => {
     setLoading(true);
     const data = await fetchPlots();
-    setPlots(data);
+    
+    // FIX 3: Filter plots natively in the frontend so layouts stay 100% isolated!
+    const projectSpecificPlots = data.filter(p => p.project_id === project.id);
+    setPlots(projectSpecificPlots);
+    
     setLoading(false);
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [project.id]);
 
-  // FIX: Reset CV queue and modals immediately when switching projects
   useEffect(() => {
     setShowModal(false);
     setCvQueue([]);
     setDrawnShapeData(null);
   }, [project.id]);
 
-  // FIX: Consume the initial CV Queue exactly once, then wipe global state
   useEffect(() => {
     if (initialCvQueue && initialCvQueue.length > 0) {
        setCvQueue(initialCvQueue);
        setDrawnShapeData(initialCvQueue[0]);
        setShowModal(true);
-       clearCvQueue(); // Consume it so it never triggers again for this project
+       clearCvQueue(); 
     }
   }, [initialCvQueue]);
 
@@ -1003,7 +1002,9 @@ function MapEngine({ role, project, onBack, addToast, initialCvQueue = [], clear
     
     const polygonString = drawnShapeData.originalPolygon || `[[${x},${y}], [${x+w},${y}], [${x+w},${y+h}], [${x},${y+h}]]`;
     
+    // FIX 2: Attach the project_id mapping dynamically
     const finalPayload = {
+      project_id: project.id,
       plot_number: formData.plot_number, width_ft: predictionResult.width_ft, length_ft: predictionResult.length_ft,
       total_area_sqft: predictionResult.total_area_sqft, base_price: predictionResult.predicted_price,
       status: formData.status, buyer_name: formData.buyer_name || null, contact_number: formData.contact_number || null,
@@ -1132,7 +1133,6 @@ function MapEngine({ role, project, onBack, addToast, initialCvQueue = [], clear
              </div>
            </div>
            
-           {/* FIX: Pass the dynamic imageUrl down to the canvas */}
            <PlotCanvas existingPlots={plots} onPlotDrawn={handlePlotDrawn} onPlotClick={setViewPlot} role={role} imageUrl={imageUrl} />
         </div>
 
