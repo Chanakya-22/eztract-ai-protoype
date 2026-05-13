@@ -90,3 +90,23 @@ export const updatePlotStatus = async (plotId, status) => {
     return null;
   }
 };
+
+export const detectPlotsCV = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  
+  try {
+    // Assuming API_BASE_URL is configured at the top of your api.js
+    // If not, explicitly use "http://localhost:8000/api/ai/detect-plots"
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
+    const response = await fetch(`${API_BASE_URL}/ai/detect-plots`, {
+      method: 'POST',
+      body: formData
+    });
+    if (!response.ok) throw new Error("Computer Vision detection failed");
+    return await response.json();
+  } catch (error) {
+    console.error("Error running CV detection:", error);
+    return null;
+  }
+};

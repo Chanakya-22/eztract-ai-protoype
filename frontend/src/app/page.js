@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { fetchPlots, predictPlotPrice, savePlotToDB, fetchPricingInsight, fetchCompletionForecast, fetchSmartBundling, fetchBuyerPersona, updatePlotStatus } from '../services/api';
+import { fetchPlots, predictPlotPrice, savePlotToDB, fetchPricingInsight, fetchCompletionForecast, fetchSmartBundling, fetchBuyerPersona, updatePlotStatus, detectPlotsCV } from '../services/api';
 import { 
   Loader2, PlusCircle, CheckCircle, X, User, Phone, ShieldCheck, ArrowRight, Lock, 
   Eye, EyeOff, Command, Layers, Cpu, Database, Map, LayoutDashboard, Settings, LogOut, 
@@ -53,7 +53,6 @@ function AnimatedCounter({ value, isCurrency = false, duration = 2000 }) {
       if (!startTime) startTime = timestamp;
       const progress = timestamp - startTime;
       
-      // Ease-out calculation
       const easeOut = 1 - Math.pow(1 - progress / duration, 3);
       const currentCount = Math.min(value * easeOut, value);
       
@@ -116,7 +115,64 @@ export default function MasterApp() {
   ]);
   const [selectedProject, setSelectedProject] = useState(null);
 
-  // SCROLL REVEAL ANIMATION OBSERVER (PROMPT 7)
+  // ==========================================
+  // GLOBAL CV UPLOAD & NEW PROJECT HANDLER
+  // ==========================================
+  const [isDetectingCV, setIsDetectingCV] = useState(false);
+  const [initialCvQueue, setInitialCvQueue] = useState([]);
+
+  const handleNewProjectUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsDetectingCV(true);
+    addToast("Scanning blueprint with U-Net Computer Vision...", "info");
+
+    const res = await detectPlotsCV(file);
+    
+    if (res && res.polygons) {
+      if (res.polygons.length === 0) {
+         addToast("No plots detected by the AI model.", "info");
+      } else {
+         const queue = res.polygons.map(poly => {
+           const xs = poly.map(p => p[0]);
+           const ys = poly.map(p => p[1]);
+           return {
+              x: Math.min(...xs),
+              y: Math.min(...ys),
+              width: Math.max(...xs) - Math.min(...xs),
+              height: Math.max(...ys) - Math.min(...ys),
+              originalPolygon: JSON.stringify(poly) 
+           };
+         });
+
+         // 1. Create the new project wrapper
+         const newProject = {
+            id: 'proj_' + Date.now(),
+            name: 'Auto-Detected CV Layout',
+            location: 'Unassigned Location',
+            totalArea: 'Calculating...',
+            status: 'Active',
+            image: null
+         };
+
+         // 2. Add it to our dashboard and switch to map view
+         setProjects(prev => [...prev, newProject]);
+         setSelectedProject(newProject);
+         setInitialCvQueue(queue);
+         setCurrentView('map');
+
+         addToast(`Successfully extracted ${queue.length} plots! Initializing batch review...`, "success");
+      }
+    } else {
+       addToast("Computer Vision pipeline failed. Check backend logs.", "error");
+    }
+    
+    setIsDetectingCV(false);
+    e.target.value = null; // reset input
+  };
+
+  // SCROLL REVEAL ANIMATION OBSERVER
   useEffect(() => {
     if (currentView !== 'landing') return;
 
@@ -130,7 +186,6 @@ export default function MasterApp() {
       });
     }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
 
-    // Slight delay ensures DOM is fully painted before querying
     setTimeout(() => {
       const elements = document.querySelectorAll('.reveal-on-scroll');
       elements.forEach(el => observer.observe(el));
@@ -145,7 +200,6 @@ export default function MasterApp() {
       return (
         <div className="min-h-screen bg-black text-white font-sans selection:bg-emerald-500/30 overflow-x-hidden relative scroll-smooth flex flex-col">
           
-          {/* LANDING NAVIGATION */}
           <nav className="fixed top-0 w-full z-50 bg-black/50 backdrop-blur-xl border-b border-white/5">
             <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between relative z-50">
               
@@ -166,13 +220,11 @@ export default function MasterApp() {
                 </button>
               </div>
 
-              {/* MOBILE HAMBURGER BUTTON */}
               <button className="md:hidden p-2 -mr-2 text-neutral-400 hover:text-white transition-colors" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
                 {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
             </div>
 
-            {/* MOBILE DROPDOWN MENU */}
             <div className={`md:hidden absolute top-16 left-0 w-full bg-neutral-950 border-b border-white/5 transition-all duration-300 ease-in-out overflow-hidden ${isMobileMenuOpen ? 'max-h-[400px] border-opacity-100 shadow-2xl' : 'max-h-0 border-opacity-0'}`}>
               <div className="flex flex-col px-6 py-4 space-y-2">
                 <a href="#how-it-works" onClick={() => setIsMobileMenuOpen(false)} className="block py-3 text-neutral-300 hover:text-white font-medium text-lg">How It Works</a>
@@ -184,13 +236,11 @@ export default function MasterApp() {
             </div>
           </nav>
 
-          {/* MOBILE MENU BACKDROP */}
           {isMobileMenuOpen && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)}></div>
           )}
 
           <section className="relative pt-40 pb-20 px-6 flex flex-col items-center text-center flex-1">
-            {/* Background Glow */}
             <div className="absolute top-40 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.08)_0%,_transparent_50%)] pointer-events-none"></div>
             
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold tracking-widest uppercase mb-8 text-emerald-400 relative z-10 animate-in fade-in duration-1000">
@@ -214,14 +264,10 @@ export default function MasterApp() {
               </a>
             </div>
 
-            {/* HOW IT WORKS */}
             <div id="how-it-works" className="max-w-5xl w-full mx-auto relative z-10 scroll-mt-24">
-              
               <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative">
-                {/* Connecting Dashed Line (Desktop Only) */}
                 <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-[2px] border-t-2 border-dashed border-white/10 z-0"></div>
 
-                {/* Step 1 */}
                 <div className="relative z-10 flex flex-col items-center text-center bg-black px-6 reveal-on-scroll opacity-0 translate-y-5 transition-all duration-700 ease-out" style={{ transitionDelay: '0ms' }}>
                   <div className="w-24 h-24 bg-neutral-950 border border-white/10 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.05)]">
                     <Map className="w-10 h-10 text-emerald-500" />
@@ -231,7 +277,6 @@ export default function MasterApp() {
                   <p className="text-neutral-400 text-sm font-light leading-relaxed">Trace the physical boundaries of raw land directly on the interactive satellite layout.</p>
                 </div>
 
-                {/* Step 2 */}
                 <div className="relative z-10 flex flex-col items-center text-center bg-black px-6 reveal-on-scroll opacity-0 translate-y-5 transition-all duration-700 ease-out" style={{ transitionDelay: '150ms' }}>
                   <div className="w-24 h-24 bg-neutral-950 border border-white/10 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.05)]">
                     <Cpu className="w-10 h-10 text-emerald-500" />
@@ -241,7 +286,6 @@ export default function MasterApp() {
                   <p className="text-neutral-400 text-sm font-light leading-relaxed">The AI engine calculates precise square footage and predicts market valuation.</p>
                 </div>
 
-                {/* Step 3 */}
                 <div className="relative z-10 flex flex-col items-center text-center bg-black px-6 reveal-on-scroll opacity-0 translate-y-5 transition-all duration-700 ease-out" style={{ transitionDelay: '300ms' }}>
                   <div className="w-24 h-24 bg-neutral-950 border border-white/10 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.05)]">
                     <Database className="w-10 h-10 text-emerald-500" />
@@ -252,7 +296,6 @@ export default function MasterApp() {
                 </div>
               </div>
 
-              {/* FEATURE SHOWCASE: AI MODELS */}
               <div id="ai-models" className="mt-40 mb-16 scroll-mt-24 text-left">
                 <div className="text-center mb-16 reveal-on-scroll opacity-0 translate-y-5 transition-all duration-700 ease-out">
                   <h2 className="text-3xl md:text-5xl font-medium text-white mb-4 tracking-tight">Everything your sales team needs.</h2>
@@ -260,8 +303,6 @@ export default function MasterApp() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
-                  {/* AI Feature 1 */}
                   <div className="bg-neutral-900/30 border border-white/5 border-t-emerald-500/30 rounded-3xl p-8 hover:-translate-y-1 hover:shadow-2xl hover:bg-neutral-900/50 transition-all duration-300 group reveal-on-scroll opacity-0 translate-y-5 ease-out" style={{ transitionDelay: '0ms', transitionDuration: '700ms' }}>
                     <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-6 border border-emerald-500/20">
                       <TrendingUp className="w-6 h-6 text-emerald-400" />
@@ -271,7 +312,6 @@ export default function MasterApp() {
                     <p className="text-[10px] font-bold text-emerald-500 tracking-widest uppercase flex items-center gap-1 group-hover:translate-x-1 transition-transform">Live in dashboard <ArrowRight className="w-3 h-3" /></p>
                   </div>
 
-                  {/* AI Feature 2 */}
                   <div className="bg-neutral-900/30 border border-white/5 border-t-blue-500/30 rounded-3xl p-8 hover:-translate-y-1 hover:shadow-2xl hover:bg-neutral-900/50 transition-all duration-300 group reveal-on-scroll opacity-0 translate-y-5 ease-out" style={{ transitionDelay: '150ms', transitionDuration: '700ms' }}>
                     <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mb-6 border border-blue-500/20">
                       <Clock className="w-6 h-6 text-blue-400" />
@@ -281,7 +321,6 @@ export default function MasterApp() {
                     <p className="text-[10px] font-bold text-blue-500 tracking-widest uppercase flex items-center gap-1 group-hover:translate-x-1 transition-transform">Live in dashboard <ArrowRight className="w-3 h-3" /></p>
                   </div>
 
-                  {/* AI Feature 3 */}
                   <div className="bg-neutral-900/30 border border-white/5 border-t-purple-500/30 rounded-3xl p-8 hover:-translate-y-1 hover:shadow-2xl hover:bg-neutral-900/50 transition-all duration-300 group reveal-on-scroll opacity-0 translate-y-5 ease-out" style={{ transitionDelay: '300ms', transitionDuration: '700ms' }}>
                     <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mb-6 border border-purple-500/20">
                       <Link className="w-6 h-6 text-purple-400" />
@@ -291,7 +330,6 @@ export default function MasterApp() {
                     <p className="text-[10px] font-bold text-purple-500 tracking-widest uppercase flex items-center gap-1 group-hover:translate-x-1 transition-transform">Live in dashboard <ArrowRight className="w-3 h-3" /></p>
                   </div>
 
-                  {/* AI Feature 4 */}
                   <div className="bg-neutral-900/30 border border-white/5 border-t-cyan-500/30 rounded-3xl p-8 hover:-translate-y-1 hover:shadow-2xl hover:bg-neutral-900/50 transition-all duration-300 group reveal-on-scroll opacity-0 translate-y-5 ease-out" style={{ transitionDelay: '450ms', transitionDuration: '700ms' }}>
                     <div className="w-12 h-12 bg-cyan-500/10 rounded-xl flex items-center justify-center mb-6 border border-cyan-500/20">
                       <Users className="w-6 h-6 text-cyan-400" />
@@ -304,7 +342,6 @@ export default function MasterApp() {
                 </div>
               </div>
 
-              {/* ANIMATED METRICS ROW */}
               <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 py-10 border-y border-white/5 bg-neutral-900/20 backdrop-blur-sm rounded-3xl reveal-on-scroll opacity-0 translate-y-5 transition-all duration-700 ease-out" style={{ transitionDelay: '150ms' }}>
                 <div className="text-center">
                   <p className="text-5xl font-light text-white mb-2">
@@ -329,7 +366,6 @@ export default function MasterApp() {
             </div>
           </section>
 
-          {/* APPLE-STYLE FOOTER (PROMPT 6) */}
           <footer className="w-full bg-neutral-950 border-t border-white/5 py-12 px-6 mt-auto relative z-10">
             <div className="max-w-7xl mx-auto">
               <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8 text-center md:text-left">
@@ -406,14 +442,13 @@ export default function MasterApp() {
 
     return (
       <DashboardLayout role={role} currentView={currentView} onViewChange={setCurrentView} onLogout={() => setCurrentView('landing')}>
-        {currentView === 'dashboard' && <ProjectsDashboard projects={projects} onSelectProject={(p) => { setSelectedProject(p); setCurrentView('map'); }} role={role} />}
-        {currentView === 'map' && selectedProject && <MapEngine role={role} project={selectedProject} onBack={() => setCurrentView('dashboard')} addToast={addToast} />}
+        {currentView === 'dashboard' && <ProjectsDashboard projects={projects} onSelectProject={(p) => { setSelectedProject(p); setCurrentView('map'); }} role={role} isDetectingCV={isDetectingCV} onNewProjectUpload={handleNewProjectUpload} />}
+        {currentView === 'map' && selectedProject && <MapEngine role={role} project={selectedProject} onBack={() => { setCurrentView('dashboard'); setInitialCvQueue([]); }} addToast={addToast} initialCvQueue={initialCvQueue} />}
         {currentView === 'insights' && <InsightsDashboard role={role} />}
       </DashboardLayout>
     );
   };
 
-  // RENDER APP WITH GLOBAL TOAST CONTAINER
   return (
     <>
       {renderContent()}
@@ -438,7 +473,6 @@ function DashboardLayout({ children, role, currentView, onViewChange, onLogout }
   return (
     <div className="min-h-screen bg-black text-white flex overflow-hidden font-sans relative">
       
-      {/* MOBILE BACKDROP */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-300"
@@ -446,7 +480,6 @@ function DashboardLayout({ children, role, currentView, onViewChange, onLogout }
         ></div>
       )}
 
-      {/* SIDEBAR */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-neutral-950 border-r border-white/5 flex flex-col transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-20 flex items-center px-8 border-b border-white/5 justify-between md:justify-start shrink-0">
           <button onClick={() => onViewChange('landing')} className="flex items-center hover:opacity-80 transition-opacity outline-none">
@@ -458,10 +491,7 @@ function DashboardLayout({ children, role, currentView, onViewChange, onLogout }
           </button>
         </div>
         
-        {/* SIDEBAR NAVIGATION CONTENT */}
         <div className="p-6 flex-1 flex flex-col overflow-y-auto custom-scrollbar">
-          
-          {/* WORKSPACE SECTION */}
           <div className="space-y-2">
             <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-4 ml-2">Workspace</p>
             <button onClick={() => handleNav('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium border transition-colors ${currentView === 'dashboard' || currentView === 'map' ? 'bg-neutral-900 text-white border-l-2 border-l-emerald-500 border-y-white/5 border-r-white/5 rounded-l-sm' : 'text-neutral-500 hover:text-white hover:bg-neutral-900/50 border-transparent'}`}>
@@ -474,7 +504,6 @@ function DashboardLayout({ children, role, currentView, onViewChange, onLogout }
 
           <div className="h-px bg-white/5 my-6 mx-2"></div>
 
-          {/* ACCOUNT SECTION */}
           <div className="space-y-2">
             <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-4 ml-2">Account</p>
             
@@ -485,7 +514,7 @@ function DashboardLayout({ children, role, currentView, onViewChange, onLogout }
                </span>
             </div>
 
-            <a href="https://github.com/Chanakya-22/eztract-ai-protoype" target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium border border-transparent text-neutral-500 hover:text-white hover:bg-neutral-900/50 transition-colors">
+            <a href="https://github.com/Chanakya-22/eztract-ai-protoype#documentation" target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium border border-transparent text-neutral-500 hover:text-white hover:bg-neutral-900/50 transition-colors">
               <FileText className="w-5 h-5" /> Documentation
             </a>
             
@@ -494,7 +523,6 @@ function DashboardLayout({ children, role, currentView, onViewChange, onLogout }
             </button>
           </div>
 
-          {/* VERSION TAG */}
           <div className="mt-auto pt-8 pb-2 text-center">
              <p className="text-[10px] font-medium text-neutral-700 uppercase tracking-widest">v2.0 · Prototype</p>
           </div>
@@ -502,10 +530,7 @@ function DashboardLayout({ children, role, currentView, onViewChange, onLogout }
         </div>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#050505] relative">
-        
-        {/* MOBILE HEADER */}
         <div className="md:hidden flex items-center p-4 border-b border-white/5 bg-neutral-950 shrink-0 gap-3 relative z-30">
           <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition-colors outline-none">
             <Menu className="w-6 h-6" />
@@ -515,15 +540,15 @@ function DashboardLayout({ children, role, currentView, onViewChange, onLogout }
             <span className="font-bold tracking-widest text-base">EZTRACT</span>
           </button>
         </div>
-
-        {/* PAGE CONTENT */}
         {children}
       </main>
     </div>
   );
 }
 
-function ProjectsDashboard({ projects, onSelectProject, role }) {
+function ProjectsDashboard({ projects, onSelectProject, role, isDetectingCV, onNewProjectUpload }) {
+  const fileInputRef = useRef(null);
+
   return (
     <div className="p-8 max-w-7xl mx-auto w-full animate-in fade-in duration-500 overflow-y-auto custom-scrollbar h-full">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-4">
@@ -532,9 +557,17 @@ function ProjectsDashboard({ projects, onSelectProject, role }) {
           <p className="text-neutral-400">Manage your digitized layouts and real estate developments.</p>
         </div>
         {role === 'admin' && (
-          <button className="bg-white text-black px-5 py-2.5 rounded-xl font-medium hover:bg-neutral-200 transition-colors flex items-center gap-2 shrink-0">
-            <PlusCircle className="w-5 h-5" /> New Layout Project
-          </button>
+          <div className="flex items-center gap-3">
+             <input type="file" ref={fileInputRef} onChange={onNewProjectUpload} accept="image/*" className="hidden" />
+             <button 
+               onClick={() => fileInputRef.current?.click()} 
+               disabled={isDetectingCV}
+               className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-5 py-2.5 rounded-xl font-medium hover:bg-emerald-500/20 transition-colors flex items-center gap-2 shrink-0 disabled:opacity-50"
+             >
+               {isDetectingCV ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+               {isDetectingCV ? 'Scanning Layout...' : 'New Layout Project (CV)'}
+             </button>
+          </div>
         )}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-12">
@@ -895,7 +928,7 @@ function InsightsDashboard({ role }) {
 // ==========================================
 // MAP ENGINE COMPONENT
 // ==========================================
-function MapEngine({ role, project, onBack, addToast }) {
+function MapEngine({ role, project, onBack, addToast, initialCvQueue = [] }) {
   const [plots, setPlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false); 
@@ -915,6 +948,9 @@ function MapEngine({ role, project, onBack, addToast }) {
   const [editStatusValue, setEditStatusValue] = useState("");
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
+  // COMPUTER VISION QUEUE
+  const [cvQueue, setCvQueue] = useState([]);
+
   const loadData = async () => {
     setLoading(true);
     const data = await fetchPlots();
@@ -923,6 +959,15 @@ function MapEngine({ role, project, onBack, addToast }) {
   };
 
   useEffect(() => { loadData(); }, []);
+
+  // Check if MapEngine was loaded with a new CV Queue
+  useEffect(() => {
+    if (initialCvQueue && initialCvQueue.length > 0) {
+       setCvQueue(initialCvQueue);
+       setDrawnShapeData(initialCvQueue[0]);
+       setShowModal(true);
+    }
+  }, [initialCvQueue]);
 
   const handlePlotDrawn = (rectData) => {
     if (role !== 'admin') return;
@@ -944,7 +989,8 @@ function MapEngine({ role, project, onBack, addToast }) {
     setIsSaving(true);
     const x = drawnShapeData.x; const y = drawnShapeData.y;
     const w = Math.abs(drawnShapeData.width); const h = Math.abs(drawnShapeData.height);
-    const polygonString = `[[${x},${y}], [${x+w},${y}], [${x+w},${y+h}], [${x},${y+h}]]`;
+    
+    const polygonString = drawnShapeData.originalPolygon || `[[${x},${y}], [${x+w},${y}], [${x+w},${y+h}], [${x},${y+h}]]`;
     
     const finalPayload = {
       plot_number: formData.plot_number, width_ft: predictionResult.width_ft, length_ft: predictionResult.length_ft,
@@ -957,13 +1003,34 @@ function MapEngine({ role, project, onBack, addToast }) {
     
     if (res) { 
       await loadData(); 
-      handleCloseModal(); 
       addToast(`Plot ${formData.plot_number} successfully registered!`, "success");
+      
+      if (cvQueue.length > 1) {
+         const nextQueue = cvQueue.slice(1);
+         setCvQueue(nextQueue);
+         setDrawnShapeData(nextQueue[0]);
+         setPredictionResult(null);
+         setFormData({ plot_number: '', buyer_name: '', contact_number: '', managed_by: '', status: 'Available' });
+      } else {
+         handleCloseModal(); 
+      }
     } 
     else { 
       addToast("Failed to save plot. Please check server connection.", "error"); 
     }
     setIsSaving(false);
+  };
+
+  const handleSkipCVPlot = () => {
+    if (cvQueue.length > 1) {
+       const nextQueue = cvQueue.slice(1);
+       setCvQueue(nextQueue);
+       setDrawnShapeData(nextQueue[0]);
+       setPredictionResult(null);
+       setFormData({ plot_number: '', buyer_name: '', contact_number: '', managed_by: '', status: 'Available' });
+    } else {
+       handleCloseModal();
+    }
   };
 
   const handleUpdateStatus = async () => {
@@ -983,6 +1050,7 @@ function MapEngine({ role, project, onBack, addToast }) {
   const handleCloseModal = () => {
     setShowModal(false); setPredictionResult(null); setDrawnShapeData(null);
     setFormData({ plot_number: '', buyer_name: '', contact_number: '', managed_by: '', status: 'Available' });
+    setCvQueue([]);
   };
 
   // CALCULATE STATS
@@ -1230,14 +1298,22 @@ function MapEngine({ role, project, onBack, addToast }) {
         </div>
       )}
 
-      {/* CREATE PLOT MODAL */}
+      {/* CREATE PLOT MODAL / BATCH REVIEW */}
       {showModal && drawnShapeData && role === 'admin' && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
            <div className="bg-neutral-950 border border-white/10 p-8 rounded-[2rem] w-full max-w-4xl shadow-2xl flex flex-col md:flex-row gap-8 animate-in zoom-in-95 duration-300">
               <div className="flex-1 flex flex-col">
-                  <h2 className="text-xl font-medium text-white mb-6 tracking-tight flex items-center gap-3">
-                    <Command className="w-5 h-5 text-emerald-500" /> AI Prediction Engine
-                  </h2>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-medium text-white tracking-tight flex items-center gap-3">
+                      <Command className="w-5 h-5 text-emerald-500" /> AI Prediction Engine
+                    </h2>
+                    {cvQueue.length > 0 && (
+                      <div className="text-[10px] bg-purple-500/10 text-purple-400 px-3 py-1.5 rounded-full border border-purple-500/20 font-bold tracking-widest uppercase">
+                        CV Batch Review: {cvQueue.length} left
+                      </div>
+                    )}
+                  </div>
+
                   {!predictionResult ? (
                       <div className="h-full flex flex-col justify-center bg-black rounded-3xl p-6 border border-white/5">
                         <p className="text-neutral-400 mb-6 font-light text-sm text-center">
@@ -1289,8 +1365,16 @@ function MapEngine({ role, project, onBack, addToast }) {
                             )}
                         </div>
                       </div>
+                      
                       <div className="mt-8 flex gap-3">
-                          <button onClick={handleCloseModal} className="flex-1 py-3.5 rounded-xl font-medium bg-neutral-900 border border-white/10 text-white hover:bg-neutral-800 transition-colors text-sm">Cancel</button>
+                          {cvQueue.length > 0 && (
+                            <button onClick={handleSkipCVPlot} className="flex-[0.8] py-3.5 rounded-xl font-medium bg-neutral-900 border border-white/10 text-neutral-400 hover:text-white transition-colors text-sm">
+                              Skip Plot
+                            </button>
+                          )}
+                          <button onClick={handleCloseModal} className="flex-1 py-3.5 rounded-xl font-medium bg-neutral-900 border border-white/10 text-white hover:bg-neutral-800 transition-colors text-sm">
+                            Cancel {cvQueue.length > 0 ? 'Batch' : ''}
+                          </button>
                           <button onClick={handleSavePlot} disabled={isSaving} className="flex-[2] py-3.5 rounded-xl font-bold bg-emerald-500 text-black hover:bg-emerald-400 transition-all flex justify-center items-center gap-2 text-sm">
                               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                               {isSaving ? 'Saving...' : 'Commit Record'}
