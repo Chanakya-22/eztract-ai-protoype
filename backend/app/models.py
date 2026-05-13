@@ -10,6 +10,17 @@ class PlotStatus(enum.Enum):
     AVAILABLE = "Available"
     BOOKED = "Booked"
     SOLD = "Sold"
+    
+class Project(Base):
+    __tablename__ = "projects"
+
+    id = Column(String, primary_key=True, index=True) 
+    name = Column(String, nullable=False)
+    location = Column(String, nullable=True)
+    total_area = Column(String, nullable=True)
+    status = Column(String, default="Active")
+    image_url = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)    
 
 class Plot(Base):
     __tablename__ = "plots"

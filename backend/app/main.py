@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import math
 from . import models, schemas, database
-from .database import engine
+from .database import engine, get_db
 from datetime import datetime, timedelta
 import json
 import itertools
@@ -13,9 +13,20 @@ from fastapi import UploadFile, File
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "ml"))
 from predict import run_prediction
+from fastapi import Form
+from fastapi.staticfiles import StaticFiles
+import shutil
+import uuid
+import os
 
-# Initialize the FastAPI app
+os.makedirs("uploads", exist_ok=True)
+
 app = FastAPI(title="EZTract AI Prototype API")
+
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+
+models.Base.metadata.create_all(bind=engine)
 
 # Setup CORS (Crucial so your Next.js frontend on localhost:3000 can communicate with this API)
 app.add_middleware(
@@ -363,3 +374,40 @@ async def detect_plots(file: UploadFile = File(...)):
         "n_plots":  len(polygons),
         "polygons": polygons
     }
+    
+# ==========================================
+# PROJECT ENDPOINTS
+# ==========================================
+@app.get("/api/projects", response_model=list[schemas.ProjectResponse])
+def get_projects(db: Session = Depends(get_db)):
+    return db.query(models.Project).all()
+
+@app.post("/api/projects", response_model=schemas.ProjectResponse)
+async def create_project(
+    id: str = Form(...),
+    name: str = Form(...),
+    location: str = Form(...),
+    total_area: str = Form(...),
+    status: str = Form(...),
+    file: UploadFile = File(None),
+    db: Session = Depends(get_db)
+):
+    image_url = None
+    if file:
+        # Save the image to the local backend/uploads folder permanently
+        file_ext = file.filename.split(".")[-1]
+        file_name = f"{id}_{uuid.uuid4().hex}.{file_ext}"
+        file_path = os.path.join("uploads", file_name)
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        image_url = f"/uploads/{file_name}"
+
+    db_project = models.Project(
+        id=id, name=name, location=location, total_area=total_area, status=status, image_url=image_url
+    )
+    db.add(db_project)
+    db.commit()
+    db.refresh(db_project)
+    return db_project    

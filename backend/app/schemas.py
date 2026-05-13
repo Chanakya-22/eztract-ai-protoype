@@ -73,3 +73,19 @@ class BuyerPersonaInsight(BaseModel):
     persona_name: str
     target_demographic: str
     recommended_pitch: str
+    
+class ProjectBase(BaseModel):
+    id: str
+    name: str
+    location: str
+    total_area: str
+    status: str
+    image_url: Optional[str] = None
+
+class ProjectCreate(ProjectBase):
+    pass
+
+class ProjectResponse(ProjectBase):
+    created_at: datetime
+    class Config:
+        from_attributes = True    
