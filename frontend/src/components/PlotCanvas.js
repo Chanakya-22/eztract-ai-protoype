@@ -3,8 +3,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Stage, Layer, Image as KonvaImage, Rect, Group, Text } from 'react-konva';
 import useImage from 'use-image';
 
-export default function PlotCanvas({ existingPlots, onPlotDrawn, onPlotClick, role }) {
-  const [image] = useImage('/layout.jpg');
+// FIX 1: Added imageUrl prop with a default fallback to '/layout.jpg'
+export default function PlotCanvas({ existingPlots, onPlotDrawn, onPlotClick, role, imageUrl = '/layout.jpg' }) {
+  // FIX 2: Pass the dynamic imageUrl into the hook instead of the hardcoded string!
+  const [image] = useImage(imageUrl);
   const containerRef = useRef(null);
   
   const [isDrawing, setIsDrawing] = useState(false);

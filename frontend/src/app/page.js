@@ -146,17 +146,18 @@ export default function MasterApp() {
            };
          });
 
-         // 1. Create the new project wrapper
+         // FIX: Generate a local blob URL for the uploaded image so the canvas can render it
+         const imageUrl = URL.createObjectURL(file);
+
          const newProject = {
             id: 'proj_' + Date.now(),
             name: 'Auto-Detected CV Layout',
             location: 'Unassigned Location',
             totalArea: 'Calculating...',
             status: 'Active',
-            image: null
+            image: imageUrl // <--- Attached dynamic image
          };
 
-         // 2. Add it to our dashboard and switch to map view
          setProjects(prev => [...prev, newProject]);
          setSelectedProject(newProject);
          setInitialCvQueue(queue);
@@ -442,8 +443,10 @@ export default function MasterApp() {
 
     return (
       <DashboardLayout role={role} currentView={currentView} onViewChange={setCurrentView} onLogout={() => setCurrentView('landing')}>
-        {currentView === 'dashboard' && <ProjectsDashboard projects={projects} onSelectProject={(p) => { setSelectedProject(p); setCurrentView('map'); }} role={role} isDetectingCV={isDetectingCV} onNewProjectUpload={handleNewProjectUpload} />}
-        {currentView === 'map' && selectedProject && <MapEngine role={role} project={selectedProject} onBack={() => { setCurrentView('dashboard'); setInitialCvQueue([]); }} addToast={addToast} initialCvQueue={initialCvQueue} />}
+        {/* FIX: When selecting an existing project, explicitly wipe out any lingering CV queue memory */}
+        {currentView === 'dashboard' && <ProjectsDashboard projects={projects} onSelectProject={(p) => { setSelectedProject(p); setInitialCvQueue([]); setCurrentView('map'); }} role={role} isDetectingCV={isDetectingCV} onNewProjectUpload={handleNewProjectUpload} />}
+        {/* FIX: Pass dynamic imageUrl and a clear callback down to MapEngine */}
+        {currentView === 'map' && selectedProject && <MapEngine role={role} project={selectedProject} onBack={() => { setCurrentView('dashboard'); setInitialCvQueue([]); }} addToast={addToast} initialCvQueue={initialCvQueue} clearCvQueue={() => setInitialCvQueue([])} imageUrl={selectedProject.image || '/layout.jpg'} />}
         {currentView === 'insights' && <InsightsDashboard role={role} />}
       </DashboardLayout>
     );
@@ -928,7 +931,7 @@ function InsightsDashboard({ role }) {
 // ==========================================
 // MAP ENGINE COMPONENT
 // ==========================================
-function MapEngine({ role, project, onBack, addToast, initialCvQueue = [] }) {
+function MapEngine({ role, project, onBack, addToast, initialCvQueue = [], clearCvQueue, imageUrl }) {
   const [plots, setPlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false); 
@@ -960,12 +963,20 @@ function MapEngine({ role, project, onBack, addToast, initialCvQueue = [] }) {
 
   useEffect(() => { loadData(); }, []);
 
-  // Check if MapEngine was loaded with a new CV Queue
+  // FIX: Reset CV queue and modals immediately when switching projects
+  useEffect(() => {
+    setShowModal(false);
+    setCvQueue([]);
+    setDrawnShapeData(null);
+  }, [project.id]);
+
+  // FIX: Consume the initial CV Queue exactly once, then wipe global state
   useEffect(() => {
     if (initialCvQueue && initialCvQueue.length > 0) {
        setCvQueue(initialCvQueue);
        setDrawnShapeData(initialCvQueue[0]);
        setShowModal(true);
+       clearCvQueue(); // Consume it so it never triggers again for this project
     }
   }, [initialCvQueue]);
 
@@ -1120,7 +1131,9 @@ function MapEngine({ role, project, onBack, addToast, initialCvQueue = [] }) {
                <p className="text-neutral-500 text-xs uppercase tracking-widest mt-1">Layout Mapping Interface</p>
              </div>
            </div>
-           <PlotCanvas existingPlots={plots} onPlotDrawn={handlePlotDrawn} onPlotClick={setViewPlot} role={role} />
+           
+           {/* FIX: Pass the dynamic imageUrl down to the canvas */}
+           <PlotCanvas existingPlots={plots} onPlotDrawn={handlePlotDrawn} onPlotClick={setViewPlot} role={role} imageUrl={imageUrl} />
         </div>
 
         <div className="flex-[1] bg-neutral-900 border border-white/5 rounded-3xl p-6 flex flex-col h-[400px] lg:h-full shadow-2xl shrink-0 lg:shrink mt-6 lg:mt-0">
