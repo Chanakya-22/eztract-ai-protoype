@@ -80,3 +80,6 @@ backend/ml/checkpoints/
 backend/ml/training_log.json
 backend/ml/__pycache__/
 backend/ml/*.pyc
+
+# User uploaded images
+backend/uploads/

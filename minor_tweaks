@@ -1,0 +1,28 @@
+📋 EZTRACT — NEXT SESSION TODO
+PHASE 1: Data Population & Tweaks (The Warm-Up)
+
+[ ] Boot the server and verify the clean slate ("No Projects Found").
+
+[ ] Click "Upload First Layout" and upload layout.jpg to recreate Kumaran Nagar.
+
+[ ] Use the Admin crosshair to manually trace/draw the perfect plots for Kumaran Nagar and save them to the DB.
+
+[ ] Upload a fresh CV layout and let the U-Net automatically map the second project.
+
+[ ] Address the "minor tweaks" you mentioned to polish the UI before locking it down.
+
+PHASE 2: Pillar 1 — Production Authentication
+
+[ ] Rip out the hardcoded admin123 logic.
+
+[ ] Implement Supabase Auth (Email/Password) for real user sessions.
+
+[ ] Protect the Next.js /dashboard route so only logged-in users can view it.
+
+PHASE 3: Pillar 1 — Database Security (RLS)
+
+[ ] Send the Supabase JWT token from the Next.js frontend to the FastAPI backend on every request.
+
+[ ] Enable Row Level Security (RLS) in Supabase.
+
+[ ] Write a Supabase policy: Only authenticated admins can INSERT/UPDATE plots and projects.
