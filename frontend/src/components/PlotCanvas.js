@@ -1,11 +1,9 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
-import { Stage, Layer, Image as KonvaImage, Rect, Group, Text } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Rect, Line, Group, Text } from 'react-konva';
 import useImage from 'use-image';
 
-// FIX 1: Added imageUrl prop with a default fallback to '/layout.jpg'
 export default function PlotCanvas({ existingPlots, onPlotDrawn, onPlotClick, role, imageUrl = '/layout.jpg' }) {
-  // FIX 2: Pass the dynamic imageUrl into the hook instead of the hardcoded string!
   const [image] = useImage(imageUrl);
   const containerRef = useRef(null);
   
@@ -37,15 +35,20 @@ export default function PlotCanvas({ existingPlots, onPlotDrawn, onPlotClick, ro
     return () => window.removeEventListener('resize', handleResize);
   }, [image]);
 
-  const getRectProps = (coordStr) => {
+  // FIX: Convert array of coords into a flat array for precise Polygon drawing!
+  const getPolygonProps = (coordStr) => {
     try {
       if (!coordStr) return null;
       const coords = JSON.parse(coordStr);
       if (!Array.isArray(coords) || coords.length === 0) return null;
       
+      // Flatten for Konva Line: [x1, y1, x2, y2, ...]
+      const points = coords.flatMap(c => [c[0], c[1]]);
       const xs = coords.map(c => c[0]);
       const ys = coords.map(c => c[1]);
+      
       return {
+        points,
         x: Math.min(...xs), y: Math.min(...ys),
         width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys)
       };
@@ -58,7 +61,6 @@ export default function PlotCanvas({ existingPlots, onPlotDrawn, onPlotClick, ro
     
     setIsDrawing(true);
     const pos = e.target.getStage().getPointerPosition();
-    // Save coordinate based on ORIGINAL image scale so it never drifts
     setNewPlotRect({ x: pos.x / scale, y: pos.y / scale, width: 0, height: 0 });
   };
 
@@ -107,8 +109,8 @@ export default function PlotCanvas({ existingPlots, onPlotDrawn, onPlotClick, ro
             {image && <KonvaImage image={image} opacity={0.9} />}
 
             {existingPlots && existingPlots.map((plot) => {
-              const rectProps = getRectProps(plot.polygon_coordinates);
-              if (!rectProps) return null; 
+              const polyProps = getPolygonProps(plot.polygon_coordinates);
+              if (!polyProps) return null; 
               
               const fillColor = plot.status === 'Available' ? 'rgba(34, 197, 94, 0.4)' : 
                                 plot.status === 'Sold' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(245, 158, 11, 0.5)'; 
@@ -116,22 +118,23 @@ export default function PlotCanvas({ existingPlots, onPlotDrawn, onPlotClick, ro
 
               return (
                 <Group key={plot.id}>
-                  <Rect
+                  {/* FIX: Using Line (Polygon) instead of Rect for precise Hover masking */}
+                  <Line
                     id={`plot-${plot.id}`}
-                    x={rectProps.x} y={rectProps.y}
-                    width={rectProps.width} height={rectProps.height}
+                    points={polyProps.points}
+                    closed={true}
                     fill={isHovered ? 'rgba(255,255,255,0.3)' : fillColor} 
                     stroke={isHovered ? '#fff' : 'rgba(255,255,255,0.2)'}
                     strokeWidth={isHovered ? 3 : 1}
-                    cornerRadius={2}
                     onMouseEnter={() => setHoveredPlot(plot)}
                     onMouseLeave={() => setHoveredPlot(null)}
                     onClick={(e) => { e.cancelBubble = true; onPlotClick(plot); }} 
                     onTap={(e) => { e.cancelBubble = true; onPlotClick(plot); }}
                   />
+                  {/* Text remains centered using the calculated bounding box */}
                   <Text 
-                    x={rectProps.x} y={rectProps.y + (rectProps.height / 2) - 6}
-                    width={rectProps.width} text={plot.plot_number}
+                    x={polyProps.x} y={polyProps.y + (polyProps.height / 2) - 6}
+                    width={polyProps.width} text={plot.plot_number}
                     fontSize={12} fill={isHovered ? "white" : "rgba(255,255,255,0.9)"} fontStyle="bold" align="center"
                     listening={false} 
                   />
@@ -139,6 +142,7 @@ export default function PlotCanvas({ existingPlots, onPlotDrawn, onPlotClick, ro
               );
             })}
 
+            {/* The active manual draw tool stays a Rectangle */}
             {newPlotRect && role === 'admin' && (
               <Rect
                 x={newPlotRect.width < 0 ? newPlotRect.x + newPlotRect.width : newPlotRect.x}

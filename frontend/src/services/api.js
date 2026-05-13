@@ -110,3 +110,36 @@ export const detectPlotsCV = async (file) => {
     return null;
   }
 };
+
+// Add these to api.js
+export const fetchProjects = async () => {
+    try {
+        const response = await fetch(`${API_URL}/projects`);
+        if (!response.ok) return [];
+        return await response.json();
+    } catch (error) {
+        console.error("Error fetching projects:", error);
+        return [];
+    }
+};
+
+export const createProject = async (projectData, file) => {
+    const formData = new FormData();
+    formData.append("id", projectData.id);
+    formData.append("name", projectData.name);
+    formData.append("location", projectData.location);
+    formData.append("total_area", projectData.totalArea);
+    formData.append("status", projectData.status);
+    if (file) formData.append("file", file);
+
+    try {
+        const response = await fetch(`${API_URL}/projects`, {
+            method: 'POST',
+            body: formData
+        });
+        return await response.json();
+    } catch (error) {
+        console.error("Error saving project:", error);
+        return null;
+    }
+};

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { fetchPlots, predictPlotPrice, savePlotToDB, fetchPricingInsight, fetchCompletionForecast, fetchSmartBundling, fetchBuyerPersona, updatePlotStatus, detectPlotsCV } from '../services/api';
+import { fetchPlots, predictPlotPrice, savePlotToDB, fetchPricingInsight, fetchCompletionForecast, fetchSmartBundling, fetchBuyerPersona, updatePlotStatus, detectPlotsCV, fetchProjects, createProject } from '../services/api';
 import { 
   Loader2, PlusCircle, CheckCircle, X, User, Phone, ShieldCheck, ArrowRight, Lock, 
   Eye, EyeOff, Command, Layers, Cpu, Database, Map, LayoutDashboard, Settings, LogOut, 
@@ -89,31 +89,85 @@ function AnimatedCounter({ value, isCurrency = false, duration = 2000 }) {
 }
 
 export default function MasterApp() {
+  const [isHydrated, setIsHydrated] = useState(false);
   const [currentView, setCurrentView] = useState('landing'); 
   const [role, setRole] = useState('user'); 
+  
   const [showPassword, setShowPassword] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // TOAST STATE MANAGEMENT
   const [toasts, setToasts] = useState([]);
+
+  // DYNAMIC PROJECT STATE
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState(null);
+
+  // --- FIX: LOCAL STORAGE PERSISTENCE (Refresh Survival) ---
+  useEffect(() => {
+    const savedView = localStorage.getItem('eztract_view');
+    const savedRole = localStorage.getItem('eztract_role');
+    
+    if (savedView) setCurrentView(savedView);
+    if (savedRole) setRole(savedRole);
+    
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    localStorage.setItem('eztract_view', currentView);
+    localStorage.setItem('eztract_role', role);
+    if (selectedProject) {
+      localStorage.setItem('eztract_project_id', selectedProject.id);
+    } else {
+      localStorage.removeItem('eztract_project_id');
+    }
+  }, [currentView, role, selectedProject, isHydrated]);
+  // ---------------------------------------------------------
 
   const addToast = (message, type = 'info') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4000); 
+    setTimeout(() => { setToasts(prev => prev.filter(t => t.id !== id)); }, 4000); 
   };
 
-  const removeToast = (id) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  };
-  
-  // FIX 1: Removed Green Valley Estates. Clean slate.
-  const [projects, setProjects] = useState([
-    { id: 'proj_1', name: 'Kumaran Nagar Layout', location: 'Chennai, Tamil Nadu', totalArea: '4.2 Acres', status: 'Active', image: '/layout.jpg' }
-  ]);
-  const [selectedProject, setSelectedProject] = useState(null);
+  const removeToast = (id) => { setToasts(prev => prev.filter(t => t.id !== id)); };
+
+  // LOAD PROJECTS FROM DATABASE
+  useEffect(() => {
+    const loadProjects = async () => {
+      const data = await fetchProjects();
+      const API_HOST = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace('/api', '') : 'http://127.0.0.1:8000';
+      
+      const dbFormatted = data.map(p => ({
+         id: p.id,
+         name: p.name,
+         location: p.location,
+         totalArea: p.total_area,
+         status: p.status,
+         image: p.image_url ? `${API_HOST}${p.image_url}` : '/layout.jpg'
+      }));
+      
+      const defaultKumaranNagar = { 
+          id: 'proj_1', 
+          name: 'Kumaran Nagar Layout', 
+          location: 'Chennai, Tamil Nadu', 
+          totalArea: '4.2 Acres', 
+          status: 'Active', 
+          image: '/layout.jpg' 
+      };
+
+      const finalProjects = [defaultKumaranNagar, ...dbFormatted.filter(p => p.id !== 'proj_1')];
+      setProjects(finalProjects);
+
+      // Restore selected project if surviving a refresh
+      const savedProjectId = localStorage.getItem('eztract_project_id');
+      if (savedProjectId) {
+         const foundProject = finalProjects.find(p => p.id === savedProjectId);
+         if (foundProject) setSelectedProject(foundProject);
+      }
+    };
+    loadProjects();
+  }, []);
 
   // ==========================================
   // GLOBAL CV UPLOAD & NEW PROJECT HANDLER
@@ -146,19 +200,24 @@ export default function MasterApp() {
            };
          });
 
-         const imageUrl = URL.createObjectURL(file);
-
-         const newProject = {
-            id: 'proj_' + Date.now(),
-            name: 'Auto-Detected CV Layout',
+         const projId = 'proj_' + Date.now();
+         const newProjectData = {
+            id: projId,
+            name: `CV Layout Model - ${projId.slice(-4)}`,
             location: 'Unassigned Location',
             totalArea: 'Calculating...',
-            status: 'Active',
-            image: imageUrl 
+            status: 'Active'
          };
 
-         setProjects(prev => [...prev, newProject]);
-         setSelectedProject(newProject);
+         const savedDbProject = await createProject(newProjectData, file);
+         
+         const API_HOST = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace('/api', '') : 'http://127.0.0.1:8000';
+         const finalImageUrl = savedDbProject?.image_url ? `${API_HOST}${savedDbProject.image_url}` : URL.createObjectURL(file);
+
+         const completeProject = { ...newProjectData, image: finalImageUrl };
+
+         setProjects(prev => [...prev, completeProject]);
+         setSelectedProject(completeProject);
          setInitialCvQueue(queue);
          setCurrentView('map');
 
@@ -194,7 +253,8 @@ export default function MasterApp() {
     return () => observer.disconnect();
   }, [currentView]);
 
-  // WRAPPER FUNCTION TO RENDER CURRENT VIEW
+  if (!isHydrated) return <div className="min-h-screen bg-[#050505]" />; // Prevents flicker on reload
+
   const renderContent = () => {
     if (currentView === 'landing') {
       return (
@@ -203,7 +263,7 @@ export default function MasterApp() {
           <nav className="fixed top-0 w-full z-50 bg-black/50 backdrop-blur-xl border-b border-white/5">
             <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between relative z-50">
               
-              <button onClick={() => { setCurrentView('landing'); setIsMobileMenuOpen(false); }} className="flex items-center gap-3 hover:opacity-80 transition-opacity outline-none">
+              <button onClick={() => { setCurrentView('landing'); setIsMobileMenuOpen(false); setSelectedProject(null); }} className="flex items-center gap-3 hover:opacity-80 transition-opacity outline-none">
                 <div className="bg-emerald-500 p-1.5 rounded-lg"><Command className="w-5 h-5 text-black" /></div>
                 <span className="font-bold tracking-wide text-lg">EZTRACT</span>
               </button>
@@ -215,7 +275,7 @@ export default function MasterApp() {
 
               <div className="hidden md:flex items-center gap-6 text-sm font-medium">
                 <button onClick={() => setCurrentView('login')} className="text-emerald-400 hover:text-emerald-300 transition-colors">Admin Gateway</button>
-                <button onClick={() => { setRole('user'); setCurrentView('dashboard'); }} className="bg-white text-black px-5 py-2.5 rounded-full hover:scale-105 transition-transform font-semibold">
+                <button onClick={() => { setRole('user'); setCurrentView('dashboard'); setSelectedProject(null); }} className="bg-white text-black px-5 py-2.5 rounded-full hover:scale-105 transition-transform font-semibold">
                   View Demo
                 </button>
               </div>
@@ -231,7 +291,7 @@ export default function MasterApp() {
                 <a href="#ai-models" onClick={() => setIsMobileMenuOpen(false)} className="block py-3 text-neutral-300 hover:text-white font-medium text-lg">AI Models</a>
                 <div className="h-px bg-white/10 my-2"></div>
                 <button onClick={() => { setIsMobileMenuOpen(false); setCurrentView('login'); }} className="text-left py-3 text-emerald-400 hover:text-emerald-300 font-medium text-lg">Admin Gateway</button>
-                <button onClick={() => { setIsMobileMenuOpen(false); setRole('user'); setCurrentView('dashboard'); }} className="text-left py-3 text-white font-medium text-lg">View Demo</button>
+                <button onClick={() => { setIsMobileMenuOpen(false); setRole('user'); setCurrentView('dashboard'); setSelectedProject(null); }} className="text-left py-3 text-white font-medium text-lg">View Demo</button>
               </div>
             </div>
           </nav>
@@ -256,7 +316,7 @@ export default function MasterApp() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 relative z-10 mb-32 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-500 fill-mode-both">
-              <button onClick={() => { setRole('user'); setCurrentView('dashboard'); }} className="px-8 py-4 rounded-full bg-white text-black font-semibold tracking-wide hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2">
+              <button onClick={() => { setRole('user'); setCurrentView('dashboard'); setSelectedProject(null); }} className="px-8 py-4 rounded-full bg-white text-black font-semibold tracking-wide hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2">
                 Launch Platform Workspace <ArrowRight className="w-4 h-4" />
               </button>
               <a href="https://github.com/Chanakya-22/eztract-ai-protoype" target="_blank" rel="noopener noreferrer" className="px-8 py-4 rounded-full border border-white/10 text-white font-semibold tracking-wide hover:border-white/30 transition-colors flex items-center justify-center gap-2">
@@ -441,9 +501,9 @@ export default function MasterApp() {
     }
 
     return (
-      <DashboardLayout role={role} currentView={currentView} onViewChange={setCurrentView} onLogout={() => setCurrentView('landing')}>
+      <DashboardLayout role={role} currentView={currentView} onViewChange={(view) => { setCurrentView(view); if (view !== 'map') setSelectedProject(null); }} onLogout={() => { setCurrentView('landing'); setSelectedProject(null); }}>
         {currentView === 'dashboard' && <ProjectsDashboard projects={projects} onSelectProject={(p) => { setSelectedProject(p); setInitialCvQueue([]); setCurrentView('map'); }} role={role} isDetectingCV={isDetectingCV} onNewProjectUpload={handleNewProjectUpload} />}
-        {currentView === 'map' && selectedProject && <MapEngine role={role} project={selectedProject} onBack={() => { setCurrentView('dashboard'); setInitialCvQueue([]); }} addToast={addToast} initialCvQueue={initialCvQueue} clearCvQueue={() => setInitialCvQueue([])} imageUrl={selectedProject.image || '/layout.jpg'} />}
+        {currentView === 'map' && selectedProject && <MapEngine role={role} project={selectedProject} onBack={() => { setCurrentView('dashboard'); setInitialCvQueue([]); setSelectedProject(null); }} addToast={addToast} initialCvQueue={initialCvQueue} clearCvQueue={() => setInitialCvQueue([])} imageUrl={selectedProject.image} />}
         {currentView === 'insights' && <InsightsDashboard role={role} />}
       </DashboardLayout>
     );
@@ -570,6 +630,7 @@ function ProjectsDashboard({ projects, onSelectProject, role, isDetectingCV, onN
           </div>
         )}
       </div>
+      
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-12">
         {projects.map(proj => (
           <div key={proj.id} className="bg-neutral-900 border border-white/5 rounded-3xl overflow-hidden hover:border-emerald-500/30 transition-all group cursor-pointer"
@@ -955,7 +1016,7 @@ function MapEngine({ role, project, onBack, addToast, initialCvQueue = [], clear
     setLoading(true);
     const data = await fetchPlots();
     
-    // FIX 3: Filter plots natively in the frontend so layouts stay 100% isolated!
+    // Filter plots natively in the frontend so layouts stay isolated
     const projectSpecificPlots = data.filter(p => p.project_id === project.id);
     setPlots(projectSpecificPlots);
     
@@ -1002,7 +1063,7 @@ function MapEngine({ role, project, onBack, addToast, initialCvQueue = [], clear
     
     const polygonString = drawnShapeData.originalPolygon || `[[${x},${y}], [${x+w},${y}], [${x+w},${y+h}], [${x},${y+h}]]`;
     
-    // FIX 2: Attach the project_id mapping dynamically
+    // Attach the project_id mapping dynamically
     const finalPayload = {
       project_id: project.id,
       plot_number: formData.plot_number, width_ft: predictionResult.width_ft, length_ft: predictionResult.length_ft,
